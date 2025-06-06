@@ -2,19 +2,28 @@
 /*
 ========================================
 FICHIER: public/api.php
-Version 2.1 - Gestion créneaux détaillés
+Version 2.3 - API complète Journée des Proches
+CORRIGÉ - Problème headers résolus
 ========================================
 */
 
+// Démarrer la capture de sortie pour éviter les problèmes de headers
+ob_start();
+
+// Désactiver l'affichage des erreurs en production
+error_reporting(0);
+ini_set('display_errors', 0);
+
 // Headers CORS et JSON
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Accept, Authorization');
 header('Content-Type: application/json; charset=utf-8');
 
 // Gestion des requêtes OPTIONS pour CORS
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
+    ob_end_clean();
     exit();
 }
 
@@ -25,10 +34,11 @@ $username = 'root';
 $password = '';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
+    ob_end_clean();
     http_response_code(500);
     echo json_encode([
         'error' => 'Erreur de connexion à la base de données',
@@ -41,6 +51,9 @@ try {
 $path = $_GET['path'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
 
+// Nettoyer la sortie buffer avant de continuer
+ob_end_clean();
+
 // Router principal
 try {
     switch ($path) {
@@ -48,10 +61,18 @@ try {
             if ($method === 'GET') {
                 echo json_encode([
                     'status' => 'OK',
-                    'message' => 'API v2.1 fonctionnelle',
+                    'message' => 'API v2.3 fonctionnelle',
                     'timestamp' => date('Y-m-d H:i:s'),
                     'database' => 'Connecté à ' . $dbname,
-                    'version' => '2.1'
+                    'version' => '2.3',
+                    'features' => [
+                        'Gestion des statuts (inscrit, present, absent, annule)',
+                        'Pointage automatique avec heure de validation',
+                        'Modification des statuts en temps réel',
+                        'Statistiques avancées par statut',
+                        'Export CSV et sauvegarde JSON',
+                        'Pointage en masse'
+                    ]
                 ]);
             } else {
                 throw new Exception('Méthode non autorisée pour /test');
@@ -60,10 +81,10 @@ try {
 
         case 'agents':
             if ($method === 'GET') {
-                // Récupérer tous les agents - CORRECTION: bonne table
+                // Récupérer tous les agents avec leur statut et heure de validation
                 $stmt = $pdo->query("
                     SELECT id, code_personnel, nom, prenom, service, nombre_proches, 
-                           heure_arrivee, date_inscription, updated_at 
+                           statut, heure_validation, heure_arrivee, date_inscription, updated_at 
                     FROM agents_inscriptions 
                     ORDER BY nom, prenom
                 ");
@@ -95,6 +116,13 @@ try {
                     throw new Exception('Le nombre de proches doit être entre 0 et 4');
                 }
 
+                // Statut par défaut
+                $statut = $input['statut'] ?? 'inscrit';
+                $statutsValides = ['inscrit', 'present', 'absent', 'annule'];
+                if (!in_array($statut, $statutsValides)) {
+                    throw new Exception('Statut invalide. Valeurs autorisées: ' . implode(', ', $statutsValides));
+                }
+
                 // Vérifier que l'agent n'existe pas déjà
                 $stmt = $pdo->prepare("SELECT id FROM agents_inscriptions WHERE code_personnel = ?");
                 $stmt->execute([$input['code_personnel']]);
@@ -102,26 +130,28 @@ try {
                     throw new Exception('Un agent avec ce code personnel est déjà inscrit');
                 }
 
-                // Vérifier la capacité du créneau
-                $stmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(nombre_proches + 1), 0) as personnes_total 
-                    FROM agents_inscriptions 
-                    WHERE heure_arrivee = ?
-                ");
-                $stmt->execute([$input['heure_arrivee']]);
-                $result = $stmt->fetch();
-                $personnesActuelles = $result['personnes_total'];
-                $personnesTotal = $personnesActuelles + $input['nombre_proches'] + 1;
+                // Vérifier la capacité du créneau (seulement pour les statuts 'inscrit' et 'present')
+                if (in_array($statut, ['inscrit', 'present'])) {
+                    $stmt = $pdo->prepare("
+                        SELECT COALESCE(SUM(nombre_proches + 1), 0) as personnes_total 
+                        FROM agents_inscriptions 
+                        WHERE heure_arrivee = ? AND statut IN ('inscrit', 'present')
+                    ");
+                    $stmt->execute([$input['heure_arrivee']]);
+                    $result = $stmt->fetch();
+                    $personnesActuelles = $result['personnes_total'];
+                    $personnesTotal = $personnesActuelles + $input['nombre_proches'] + 1;
 
-                if ($personnesTotal > 14) {
-                    throw new Exception("Capacité du créneau dépassée. Places restantes: " . (14 - $personnesActuelles));
+                    if ($personnesTotal > 14) {
+                        throw new Exception("Capacité du créneau dépassée. Places restantes: " . (14 - $personnesActuelles));
+                    }
                 }
 
                 // Insérer l'agent
                 $stmt = $pdo->prepare("
                     INSERT INTO agents_inscriptions 
-                    (code_personnel, nom, prenom, service, nombre_proches, heure_arrivee) 
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (code_personnel, nom, prenom, service, nombre_proches, statut, heure_arrivee) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $stmt->execute([
@@ -130,6 +160,7 @@ try {
                     ucfirst(strtolower(trim($input['prenom']))),
                     trim($input['service']),
                     (int)$input['nombre_proches'],
+                    $statut,
                     $input['heure_arrivee']
                 ]);
 
@@ -146,9 +177,97 @@ try {
                         'prenom' => ucfirst(strtolower(trim($input['prenom']))),
                         'service' => trim($input['service']),
                         'nombre_proches' => (int)$input['nombre_proches'],
+                        'statut' => $statut,
+                        'heure_validation' => null,
                         'heure_arrivee' => $input['heure_arrivee'],
                         'date_inscription' => date('Y-m-d H:i:s')
                     ]
+                ]);
+
+            } elseif ($method === 'PUT') {
+                // Modifier un agent (notamment le statut)
+                $input = json_decode(file_get_contents('php://input'), true);
+                $code = $_GET['code'] ?? '';
+
+                if (empty($code)) {
+                    throw new Exception('Code personnel manquant pour la modification');
+                }
+
+                if (!$input) {
+                    throw new Exception('Données JSON invalides');
+                }
+
+                // Vérifier que l'agent existe
+                $stmt = $pdo->prepare("SELECT * FROM agents_inscriptions WHERE code_personnel = ?");
+                $stmt->execute([$code]);
+                $agent = $stmt->fetch();
+
+                if (!$agent) {
+                    http_response_code(404);
+                    echo json_encode([
+                        'error' => 'Agent non trouvé',
+                        'code_personnel' => $code
+                    ]);
+                    return;
+                }
+
+                // Préparer les champs à modifier
+                $updates = [];
+                $params = [];
+
+                if (isset($input['statut'])) {
+                    $statutsValides = ['inscrit', 'present', 'absent', 'annule'];
+                    if (!in_array($input['statut'], $statutsValides)) {
+                        throw new Exception('Statut invalide. Valeurs autorisées: ' . implode(', ', $statutsValides));
+                    }
+                    $updates[] = "statut = ?";
+                    $params[] = $input['statut'];
+
+                    // Si on passe au statut "present", enregistrer l'heure de validation
+                    if ($input['statut'] === 'present' && $agent['statut'] !== 'present') {
+                        $updates[] = "heure_validation = NOW()";
+                    }
+                    // Si on quitte le statut "present", remettre heure_validation à NULL
+                    elseif ($input['statut'] !== 'present' && $agent['statut'] === 'present') {
+                        $updates[] = "heure_validation = NULL";
+                    }
+                }
+
+                if (isset($input['heure_arrivee'])) {
+                    $updates[] = "heure_arrivee = ?";
+                    $params[] = $input['heure_arrivee'];
+                }
+
+                if (isset($input['nombre_proches'])) {
+                    if ($input['nombre_proches'] < 0 || $input['nombre_proches'] > 4) {
+                        throw new Exception('Le nombre de proches doit être entre 0 et 4');
+                    }
+                    $updates[] = "nombre_proches = ?";
+                    $params[] = (int)$input['nombre_proches'];
+                }
+
+                if (empty($updates)) {
+                    throw new Exception('Aucune modification spécifiée');
+                }
+
+                // Ajouter la mise à jour du timestamp
+                $updates[] = "updated_at = NOW()";
+                $params[] = $code;
+
+                // Exécuter la mise à jour
+                $sql = "UPDATE agents_inscriptions SET " . implode(', ', $updates) . " WHERE code_personnel = ?";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($params);
+
+                // Récupérer l'agent mis à jour
+                $stmt = $pdo->prepare("SELECT * FROM agents_inscriptions WHERE code_personnel = ?");
+                $stmt->execute([$code]);
+                $agentMisAJour = $stmt->fetch();
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => "Agent {$agent['prenom']} {$agent['nom']} mis à jour avec succès",
+                    'agent' => $agentMisAJour
                 ]);
 
             } elseif ($method === 'DELETE') {
@@ -196,7 +315,7 @@ try {
 
                 $stmt = $pdo->prepare("
                     SELECT id, code_personnel, nom, prenom, service, nombre_proches, 
-                           heure_arrivee, date_inscription 
+                           statut, heure_validation, heure_arrivee, date_inscription, updated_at
                     FROM agents_inscriptions 
                     WHERE code_personnel = ?
                 ");
@@ -223,13 +342,14 @@ try {
                 $creneauxMatin = ['09:00', '09:20', '09:40', '10:00', '10:20', '10:40', '11:00', '11:20', '11:40'];
                 $creneauxApresMidi = ['13:00', '13:20', '13:40', '14:00', '14:20', '14:40', '15:00', '15:20', '15:40'];
 
-                // CORRECTION: Récupérer les statistiques avec le bon format d'heure
+                // Récupérer les statistiques (seulement les agents inscrits et présents comptent pour la capacité)
                 $stmt = $pdo->query("
                     SELECT 
                         TIME_FORMAT(heure_arrivee, '%H:%i') as heure_creneau,
                         COUNT(*) as agents_inscrits,
                         SUM(nombre_proches + 1) as personnes_total
                     FROM agents_inscriptions 
+                    WHERE statut IN ('inscrit', 'present')
                     GROUP BY heure_arrivee
                     ORDER BY heure_arrivee
                 ");
@@ -290,15 +410,38 @@ try {
                         SUM(CASE WHEN heure_arrivee BETWEEN '09:00' AND '11:40' THEN 1 ELSE 0 END) as agents_matin,
                         SUM(CASE WHEN heure_arrivee BETWEEN '13:00' AND '15:40' THEN 1 ELSE 0 END) as agents_apres_midi,
                         SUM(CASE WHEN heure_arrivee BETWEEN '09:00' AND '11:40' THEN (nombre_proches + 1) ELSE 0 END) as personnes_matin,
-                        SUM(CASE WHEN heure_arrivee BETWEEN '13:00' AND '15:40' THEN (nombre_proches + 1) ELSE 0 END) as personnes_apres_midi
+                        SUM(CASE WHEN heure_arrivee BETWEEN '13:00' AND '15:40' THEN (nombre_proches + 1) ELSE 0 END) as personnes_apres_midi,
+                        -- Statistiques par statut
+                        SUM(CASE WHEN statut = 'inscrit' THEN 1 ELSE 0 END) as agents_inscrits,
+                        SUM(CASE WHEN statut = 'present' THEN 1 ELSE 0 END) as agents_presents,
+                        SUM(CASE WHEN statut = 'absent' THEN 1 ELSE 0 END) as agents_absents,
+                        SUM(CASE WHEN statut = 'annule' THEN 1 ELSE 0 END) as agents_annules,
+                        -- Statistiques de pointage
+                        COUNT(CASE WHEN heure_validation IS NOT NULL THEN 1 END) as agents_pointes,
+                        -- Taux de présence
+                        ROUND(
+                            (SUM(CASE WHEN statut = 'present' THEN 1 ELSE 0 END) * 100.0) / 
+                            NULLIF(SUM(CASE WHEN statut IN ('inscrit', 'present', 'absent') THEN 1 ELSE 0 END), 0), 
+                            2
+                        ) as taux_presence
                     FROM agents_inscriptions
                 ");
                 $stats = $stmt->fetch();
 
                 // Convertir en entiers
                 foreach ($stats as $key => $value) {
-                    $stats[$key] = (int)$value;
+                    if ($key !== 'taux_presence') {
+                        $stats[$key] = (int)$value;
+                    } else {
+                        $stats[$key] = (float)$value;
+                    }
                 }
+
+                // Ajouter des métadonnées
+                $stats['timestamp'] = date('Y-m-d H:i:s');
+                $stats['capacite_max_par_creneau'] = 14;
+                $stats['nb_creneaux_matin'] = 9;
+                $stats['nb_creneaux_apres_midi'] = 9;
 
                 echo json_encode($stats);
             } else {
@@ -306,27 +449,113 @@ try {
             }
             break;
 
-        default:
-            // Gestion du cas où le path est vide ou invalide
-            if (empty($path)) {
-                // Retourner la liste des endpoints disponibles
-                echo json_encode([
-                    'error' => 'Endpoint non trouvé',
-                    'method' => $method,
-                    'path' => $path,
-                    'available_endpoints' => [
-                        'GET /api.php?path=test',
-                        'GET /api.php?path=creneaux',
-                        'GET /api.php?path=agents',
-                        'POST /api.php?path=agents',
-                        'GET /api.php?path=search&q=CODE',
-                        'DELETE /api.php?path=agents&code=CODE',
-                        'GET /api.php?path=stats'
-                    ]
-                ]);
+        case 'export':
+            if ($method === 'GET') {
+                // Exporter toutes les données en CSV
+                $stmt = $pdo->query("
+                    SELECT 
+                        code_personnel,
+                        nom,
+                        prenom,
+                        service,
+                        nombre_proches,
+                        (nombre_proches + 1) as total_personnes,
+                        heure_arrivee,
+                        CASE 
+                            WHEN heure_arrivee BETWEEN '09:00' AND '11:40' THEN 'Matin'
+                            WHEN heure_arrivee BETWEEN '13:00' AND '15:40' THEN 'Après-midi'
+                            ELSE 'Autre'
+                        END as periode,
+                        statut,
+                        heure_validation,
+                        date_inscription,
+                        updated_at
+                    FROM agents_inscriptions 
+                    ORDER BY heure_arrivee, nom, prenom
+                ");
+
+                $agents = $stmt->fetchAll();
+
+                // Headers CSV
+                header('Content-Type: text/csv; charset=utf-8');
+                header('Content-Disposition: attachment; filename="inscriptions_journee_proches_' . date('Y-m-d_H-i') . '.csv"');
+                header('Cache-Control: max-age=0');
+
+                // Créer le fichier CSV
+                $output = fopen('php://output', 'w');
+
+                // BOM pour UTF-8
+                fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                // En-têtes
+                fputcsv($output, [
+                    'Code Personnel',
+                    'Nom',
+                    'Prénom',
+                    'Service',
+                    'Nb Proches',
+                    'Total Personnes',
+                    'Heure Arrivée',
+                    'Période',
+                    'Statut',
+                    'Heure Pointage',
+                    'Date Inscription',
+                    'Dernière Modification'
+                ], ';');
+
+                // Données
+                foreach ($agents as $agent) {
+                    fputcsv($output, [
+                        $agent['code_personnel'],
+                        $agent['nom'],
+                        $agent['prenom'],
+                        $agent['service'],
+                        $agent['nombre_proches'],
+                        $agent['total_personnes'],
+                        $agent['heure_arrivee'],
+                        $agent['periode'],
+                        ucfirst($agent['statut']),
+                        $agent['heure_validation'] ? date('d/m/Y H:i', strtotime($agent['heure_validation'])) : '',
+                        date('d/m/Y H:i', strtotime($agent['date_inscription'])),
+                        $agent['updated_at'] ? date('d/m/Y H:i', strtotime($agent['updated_at'])) : ''
+                    ], ';');
+                }
+
+                fclose($output);
+                exit();
+
             } else {
-                throw new Exception("Endpoint non trouvé: /$path");
+                throw new Exception('Méthode non autorisée pour /export');
             }
+            break;
+
+        default:
+            // Page d'accueil de l'API avec documentation complète
+            echo json_encode([
+                'api' => 'Journée des Proches API v2.3',
+                'status' => 'Prêt et fonctionnel',
+                'timestamp' => date('Y-m-d H:i:s'),
+                'database' => $dbname,
+                'endpoints' => [
+                    'GET /' => 'Cette page d\'accueil',
+                    'GET /test' => 'Test de connexion et santé de l\'API',
+                    'GET /agents' => 'Liste de tous les agents inscrits',
+                    'POST /agents' => 'Ajouter un nouvel agent',
+                    'PUT /agents?code=CODE' => 'Modifier un agent (statut, etc.)',
+                    'DELETE /agents?code=CODE' => 'Supprimer un agent',
+                    'GET /search?q=CODE' => 'Rechercher un agent par code personnel',
+                    'GET /creneaux' => 'Disponibilités de tous les créneaux',
+                    'GET /stats' => 'Statistiques complètes avec statuts',
+                    'GET /export' => 'Télécharger export CSV complet'
+                ],
+                'statuts_disponibles' => ['inscrit', 'present', 'absent', 'annule'],
+                'capacite_max_par_creneau' => 14,
+                'exemple_usage' => [
+                    'recherche' => '/api.php?path=search&q=1234567A',
+                    'modification_statut' => 'PUT /api.php?path=agents&code=1234567A avec {"statut": "present"}',
+                    'export_csv' => '/api.php?path=export'
+                ]
+            ]);
             break;
     }
 
@@ -335,13 +564,15 @@ try {
     echo json_encode([
         'error' => $e->getMessage(),
         'path' => $path,
-        'method' => $method
+        'method' => $method,
+        'timestamp' => date('Y-m-d H:i:s')
     ]);
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode([
         'error' => 'Erreur de base de données',
-        'details' => $e->getMessage()
+        'details' => $e->getMessage(),
+        'timestamp' => date('Y-m-d H:i:s')
     ]);
 }
 ?>

@@ -1,6 +1,13 @@
 <template>
   <div class="recherche-view">
-    <h2>Recherche rapide - Jour J</h2>
+    <h2>🔍 Recherche & Pointage - Jour J</h2>
+    <p class="subtitle">Interface de recherche rapide et gestion des présences</p>
+
+    <!-- Message d'alerte pour les modifications de statut -->
+    <div v-if="messageStatut" :class="['alert', `alert-${typeMessageStatut}`]" class="message-statut">
+      {{ messageStatut }}
+      <button @click="messageStatut = ''" class="alert-close">×</button>
+    </div>
 
     <div class="search-container">
       <div class="search-bar">
@@ -29,9 +36,9 @@
         <p>La recherche s'effectue automatiquement lors de la saisie</p>
         <div class="examples">
           <p><strong>Exemples de codes :</strong></p>
-          <span class="example-code">1234</span>
-          <span class="example-code">5678</span>
-          <span class="example-code">9012</span>
+          <span class="example-code" @click="searchTerm = '1234567A'; rechercherAgent()">1234567A</span>
+          <span class="example-code" @click="searchTerm = '2345678B'; rechercherAgent()">2345678B</span>
+          <span class="example-code" @click="searchTerm = '3456789C'; rechercherAgent()">3456789C</span>
         </div>
       </div>
 
@@ -39,7 +46,9 @@
       <div v-else-if="agentTrouve" class="agent-found">
         <div class="found-header">
           <h3>✅ Agent trouvé!</h3>
-          <div class="found-badge">Inscrit</div>
+          <div class="found-badge" :class="getStatutClass(agentTrouve.statut)">
+            {{ getStatutLabel(agentTrouve.statut) }}
+          </div>
         </div>
 
         <div class="agent-card-large">
@@ -99,6 +108,107 @@
               </div>
             </div>
 
+            <!-- Section Statut avec gestion des présences -->
+            <div class="detail-row">
+              <div class="detail-item full-width statut-section">
+                <span class="detail-icon">📋</span>
+                <div class="statut-container">
+                  <span class="detail-label">Statut actuel</span>
+                  <div class="statut-display">
+                    <span class="statut-badge" :class="getStatutClass(agentTrouve.statut)">
+                      {{ getStatutLabel(agentTrouve.statut) }}
+                    </span>
+                    <!-- Affichage de l'heure de pointage si présent -->
+                    <div v-if="agentTrouve.statut === 'present' && agentTrouve.heure_validation" class="pointage-info">
+                      <span class="pointage-label">⏰ Pointé le :</span>
+                      <span class="pointage-heure">{{ formatDate(agentTrouve.heure_validation) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Actions rapides de statut -->
+                  <div class="actions-rapides-statut">
+                    <h4>🚀 Actions rapides - Jour J :</h4>
+                    <div class="boutons-statuts">
+                      <button
+                        @click="modifierStatutRapide('present')"
+                        class="btn-statut-rapide btn-present"
+                        :disabled="loadingStatut || agentTrouve.statut === 'present'"
+                        :class="{ 'active': agentTrouve.statut === 'present' }"
+                      >
+                        <span v-if="loadingStatut && nouveauStatut === 'present'">⏳</span>
+                        <span v-else>✅</span>
+                        Marquer PRÉSENT
+                      </button>
+
+                      <button
+                        @click="modifierStatutRapide('absent')"
+                        class="btn-statut-rapide btn-absent"
+                        :disabled="loadingStatut || agentTrouve.statut === 'absent'"
+                        :class="{ 'active': agentTrouve.statut === 'absent' }"
+                      >
+                        <span v-if="loadingStatut && nouveauStatut === 'absent'">⏳</span>
+                        <span v-else>❌</span>
+                        Marquer ABSENT
+                      </button>
+
+                      <button
+                        @click="modifierStatutRapide('inscrit')"
+                        class="btn-statut-rapide btn-inscrit"
+                        :disabled="loadingStatut || agentTrouve.statut === 'inscrit'"
+                        :class="{ 'active': agentTrouve.statut === 'inscrit' }"
+                      >
+                        <span v-if="loadingStatut && nouveauStatut === 'inscrit'">⏳</span>
+                        <span v-else>📝</span>
+                        Remettre INSCRIT
+                      </button>
+
+                      <button
+                        @click="confirmerAnnulation"
+                        class="btn-statut-rapide btn-annule"
+                        :disabled="loadingStatut || agentTrouve.statut === 'annule'"
+                        :class="{ 'active': agentTrouve.statut === 'annule' }"
+                      >
+                        <span v-if="loadingStatut && nouveauStatut === 'annule'">⏳</span>
+                        <span v-else>🚫</span>
+                        ANNULER inscription
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Modification avancée (optionnelle) -->
+                  <details class="modification-avancee">
+                    <summary>⚙️ Modification avancée</summary>
+                    <div class="statut-modification">
+                      <label for="nouveauStatut" class="statut-modifier-label">
+                        🔄 Choisir un statut :
+                      </label>
+                      <div class="modification-controls">
+                        <select
+                          v-model="nouveauStatut"
+                          id="nouveauStatut"
+                          class="statut-select"
+                          :disabled="loading || loadingStatut"
+                        >
+                          <option value="inscrit">📝 Inscrit</option>
+                          <option value="present">✅ Présent</option>
+                          <option value="absent">❌ Absent</option>
+                          <option value="annule">🚫 Annulé</option>
+                        </select>
+                        <button
+                          @click="modifierStatut"
+                          class="btn btn-statut"
+                          :disabled="loading || loadingStatut || nouveauStatut === agentTrouve.statut"
+                        >
+                          <span v-if="loadingStatut">⏳ Modification...</span>
+                          <span v-else>💾 Valider</span>
+                        </button>
+                      </div>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+
             <div class="detail-row">
               <div class="detail-item full-width">
                 <span class="detail-icon">📅</span>
@@ -108,13 +218,38 @@
                 </div>
               </div>
             </div>
+
+            <!-- Dernière mise à jour si modifié -->
+            <div v-if="agentTrouve.updated_at && agentTrouve.updated_at !== agentTrouve.date_inscription" class="detail-row">
+              <div class="detail-item full-width">
+                <span class="detail-icon">🔄</span>
+                <div>
+                  <span class="detail-label">Dernière modification</span>
+                  <span class="detail-value">{{ formatDate(agentTrouve.updated_at) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Heure de validation (pointage) si présent -->
+            <div v-if="agentTrouve.heure_validation" class="detail-row">
+              <div class="detail-item full-width validation-info">
+                <span class="detail-icon">✅</span>
+                <div>
+                  <span class="detail-label">Heure de pointage (présence validée)</span>
+                  <span class="detail-value highlight">{{ formatDate(agentTrouve.heure_validation) }}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="actions-section">
             <button @click="printAgentInfo" class="btn btn-secondary">
-              🖨️ Imprimer
+              🖨️ Imprimer fiche
             </button>
-            <router-link to="/gestion" class="btn btn-primary">
+            <button @click="nouvelleRecherche" class="btn btn-primary">
+              🔍 Nouvelle recherche
+            </button>
+            <router-link to="/gestion" class="btn btn-info">
               👥 Voir tous les agents
             </router-link>
           </div>
@@ -182,6 +317,10 @@ export default {
     const searchTerm = ref('')
     const agentTrouve = ref(null)
     const loading = ref(false)
+    const loadingStatut = ref(false)
+    const nouveauStatut = ref('')
+    const messageStatut = ref('')
+    const typeMessageStatut = ref('success')
 
     // Fonctions utilitaires
     function getBadgeClass(heure) {
@@ -205,11 +344,31 @@ export default {
       return (heure >= '09:00' && heure <= '11:40') ? '🌅 MATIN (9h-12h)' : '🌆 APRÈS-MIDI (13h-16h)'
     }
 
+    function getStatutClass(statut) {
+      const classes = {
+        'inscrit': 'statut-inscrit',
+        'present': 'statut-present',
+        'absent': 'statut-absent',
+        'annule': 'statut-annule'
+      }
+      return classes[statut] || 'statut-inscrit'
+    }
+
+    function getStatutLabel(statut) {
+      const labels = {
+        'inscrit': '📝 Inscrit',
+        'present': '✅ Présent',
+        'absent': '❌ Absent',
+        'annule': '🚫 Annulé'
+      }
+      return labels[statut] || '📝 Inscrit'
+    }
+
     function formatDate(dateString) {
       if (!dateString) return ''
       try {
         const date = new Date(dateString)
-        return date.toLocaleDateString('fr-FR', {
+        return date.toLocaleString('fr-FR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric',
@@ -224,6 +383,18 @@ export default {
     function clearSearch() {
       searchTerm.value = ''
       agentTrouve.value = null
+      messageStatut.value = ''
+    }
+
+    function nouvelleRecherche() {
+      clearSearch()
+      // Focus sur le champ de recherche
+      setTimeout(() => {
+        const searchInput = document.querySelector('.search-input')
+        if (searchInput) {
+          searchInput.focus()
+        }
+      }, 100)
     }
 
     async function rechercherAgent() {
@@ -233,15 +404,117 @@ export default {
       }
 
       loading.value = true
+      messageStatut.value = ''
 
       try {
         const result = await agentsStore.rechercherAgent(searchTerm.value.trim())
         agentTrouve.value = result
+
+        // Initialiser le nouveau statut avec le statut actuel
+        if (result && result.statut) {
+          nouveauStatut.value = result.statut
+        }
       } catch (error) {
         console.error('Erreur recherche:', error)
         agentTrouve.value = null
       } finally {
         loading.value = false
+      }
+    }
+
+    async function modifierStatut() {
+      if (!agentTrouve.value || !nouveauStatut.value) return
+
+      if (nouveauStatut.value === agentTrouve.value.statut) {
+        messageStatut.value = 'Le statut sélectionné est identique au statut actuel'
+        typeMessageStatut.value = 'warning'
+        setTimeout(() => { messageStatut.value = '' }, 3000)
+        return
+      }
+
+      loadingStatut.value = true
+      messageStatut.value = ''
+
+      try {
+        const agentMisAJour = await agentsStore.modifierStatutAgent(
+          agentTrouve.value.code_personnel,
+          nouveauStatut.value
+        )
+
+        // Mettre à jour l'agent trouvé avec les nouvelles données
+        agentTrouve.value = agentMisAJour
+
+        const statutLabel = getStatutLabel(nouveauStatut.value)
+        messageStatut.value = `✅ Statut modifié avec succès : ${statutLabel}`
+        typeMessageStatut.value = 'success'
+
+        // Effacer le message après 5 secondes
+        setTimeout(() => { messageStatut.value = '' }, 5000)
+
+      } catch (error) {
+        console.error('Erreur modification statut:', error)
+        messageStatut.value = `❌ Erreur lors de la modification : ${error.message}`
+        typeMessageStatut.value = 'error'
+        setTimeout(() => { messageStatut.value = '' }, 8000)
+      } finally {
+        loadingStatut.value = false
+      }
+    }
+
+    async function modifierStatutRapide(statut) {
+      if (!agentTrouve.value || statut === agentTrouve.value.statut) return
+
+      nouveauStatut.value = statut
+      loadingStatut.value = true
+      messageStatut.value = ''
+
+      try {
+        const agentMisAJour = await agentsStore.modifierStatutAgent(
+          agentTrouve.value.code_personnel,
+          statut
+        )
+
+        // Mettre à jour l'agent trouvé avec les nouvelles données
+        agentTrouve.value = agentMisAJour
+
+        const statutLabel = getStatutLabel(statut)
+        let message = `✅ Agent marqué comme : ${statutLabel}`
+
+        // Message spécifique selon le statut
+        if (statut === 'present') {
+          message += ` • Pointage enregistré automatiquement à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+        } else if (statut === 'absent') {
+          message += ` • L'agent ne s'est pas présenté`
+        } else if (statut === 'annule') {
+          message += ` • Inscription annulée - places libérées`
+        } else if (statut === 'inscrit') {
+          message += ` • Statut remis à l'inscription initiale`
+        }
+
+        messageStatut.value = message
+        typeMessageStatut.value = 'success'
+
+        // Effacer le message après 5 secondes
+        setTimeout(() => { messageStatut.value = '' }, 5000)
+
+      } catch (error) {
+        console.error('Erreur modification statut rapide:', error)
+        messageStatut.value = `❌ Erreur : ${error.message}`
+        typeMessageStatut.value = 'error'
+        setTimeout(() => { messageStatut.value = '' }, 8000)
+      } finally {
+        loadingStatut.value = false
+      }
+    }
+
+    function confirmerAnnulation() {
+      if (!agentTrouve.value) return
+
+      const nomComplet = `${agentTrouve.value.prenom} ${agentTrouve.value.nom}`
+      const nbPersonnes = parseInt(agentTrouve.value.nombre_proches) + 1
+
+      if (confirm(`⚠️ ATTENTION - Annulation d'inscription !\n\nAgent : ${nomComplet}\nCreéneau : ${agentTrouve.value.heure_arrivee}\nPersonnes concernées : ${nbPersonnes}\n\nCette action va :\n• Annuler définitivement l'inscription\n• Libérer ${nbPersonnes} place${nbPersonnes > 1 ? 's' : ''} dans le créneau\n• Marquer le statut comme "Annulé"\n\nVoulez-vous vraiment continuer ?`)) {
+        modifierStatutRapide('annule')
       }
     }
 
@@ -253,19 +526,38 @@ export default {
       const periode = getPeriodeLabel(agent.heure_arrivee)
 
       const printContent = `
-        JOURNÉE DES PROCHES - FICHE AGENT
+═══════════════════════════════════════════════
+     JOURNÉE DES PROCHES - FICHE AGENT
+═══════════════════════════════════════════════
 
-        Code Personnel: ${agent.code_personnel}
-        Nom: ${agent.nom}
-        Prénom: ${agent.prenom}
-        Service: ${agent.service}
-        Nombre de proches: ${agent.nombre_proches}
-        Total personnes: ${totalPersonnes}
-        Heure d'arrivée: ${agent.heure_arrivee}
-        Période: ${periode}
-        Date d'inscription: ${formatDate(agent.date_inscription)}
+Code Personnel: ${agent.code_personnel}
+Nom: ${agent.nom}
+Prénom: ${agent.prenom}
+Service: ${agent.service}
 
-        Imprimé le: ${new Date().toLocaleString('fr-FR')}
+───────────────────────────────────────────────
+INFORMATIONS VISITE
+───────────────────────────────────────────────
+Nombre de proches: ${agent.nombre_proches}
+Total personnes: ${totalPersonnes}
+Heure d'arrivée: ${agent.heure_arrivee}
+Période: ${periode}
+
+───────────────────────────────────────────────
+STATUT ACTUEL
+───────────────────────────────────────────────
+Statut: ${getStatutLabel(agent.statut)}
+${agent.heure_validation ? `Pointage: ${formatDate(agent.heure_validation)}` : 'Pas encore pointé'}
+
+───────────────────────────────────────────────
+TRAÇABILITÉ
+───────────────────────────────────────────────
+Date inscription: ${formatDate(agent.date_inscription)}
+${agent.updated_at ? `Dernière modification: ${formatDate(agent.updated_at)}` : ''}
+
+═══════════════════════════════════════════════
+Imprimé le: ${new Date().toLocaleString('fr-FR')}
+═══════════════════════════════════════════════
       `
 
       const printWindow = window.open('', '_blank')
@@ -274,8 +566,20 @@ export default {
           <head>
             <title>Fiche Agent - ${agent.prenom} ${agent.nom}</title>
             <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              pre { font-size: 14px; line-height: 1.5; }
+              body {
+                font-family: 'Courier New', monospace;
+                padding: 20px;
+                line-height: 1.4;
+                font-size: 12px;
+              }
+              pre {
+                font-size: 12px;
+                line-height: 1.4;
+                white-space: pre-wrap;
+              }
+              @media print {
+                body { margin: 0; padding: 15px; }
+              }
             </style>
           </head>
           <body>
@@ -299,6 +603,10 @@ export default {
       searchTerm,
       agentTrouve,
       loading,
+      loadingStatut,
+      nouveauStatut,
+      messageStatut,
+      typeMessageStatut,
       totalInscriptions,
       groupeMatin,
       groupeApresMidi,
@@ -306,9 +614,15 @@ export default {
       getBadgeClass,
       getPeriodeClass,
       getPeriodeLabel,
+      getStatutClass,
+      getStatutLabel,
       formatDate,
       clearSearch,
+      nouvelleRecherche,
       rechercherAgent,
+      modifierStatut,
+      modifierStatutRapide,
+      confirmerAnnulation,
       printAgentInfo
     }
   }
@@ -317,10 +631,17 @@ export default {
 
 <style scoped>
 .recherche-view h2 {
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   color: #2c3e50;
   font-size: 2em;
   text-align: center;
+}
+
+.subtitle {
+  text-align: center;
+  color: #6c757d;
+  margin-bottom: 30px;
+  font-size: 1.1em;
 }
 
 .search-container {
@@ -416,12 +737,15 @@ export default {
   border-radius: 5px;
   font-family: monospace;
   cursor: pointer;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
+  font-weight: 600;
 }
 
 .example-code:hover {
   background: #3498db;
   color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
 }
 
 .loading-search {
@@ -465,8 +789,6 @@ export default {
 }
 
 .found-badge {
-  background: #28a745;
-  color: white;
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 0.9em;
@@ -609,11 +931,374 @@ export default {
   border: 2px solid #9b59b6;
 }
 
+/* Styles pour les messages d'alerte */
+.message-statut {
+  margin-bottom: 20px;
+  animation: slideDown 0.3s ease-out;
+}
+
+.alert {
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  font-weight: 500;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d4edda, #c3e6cb);
+  color: #155724;
+  border-left: 4px solid #28a745;
+}
+
+.alert-error {
+  background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+  color: #721c24;
+  border-left: 4px solid #dc3545;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  color: #856404;
+  border-left: 4px solid #ffc107;
+}
+
+.alert-close {
+  background: none;
+  border: none;
+  font-size: 1.4em;
+  font-weight: bold;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+  margin-left: 15px;
+  padding: 0;
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-close:hover {
+  opacity: 1;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Styles pour la section statut améliorée */
+.statut-section {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  padding: 25px;
+  border-radius: 15px;
+  border: 2px solid #e9ecef;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.statut-container {
+  width: 100%;
+}
+
+.statut-display {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.statut-badge {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 1.1em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.statut-inscrit {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #1565c0;
+  border: 2px solid #2196f3;
+}
+
+.statut-present {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  color: #2e7d32;
+  border: 2px solid #4caf50;
+}
+
+.statut-absent {
+  background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  color: #c62828;
+  border: 2px solid #f44336;
+}
+
+.statut-annule {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  color: #7b1fa2;
+  border: 2px solid #9c27b0;
+}
+
+.pointage-info {
+  margin-top: 15px;
+  padding: 12px;
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  border-radius: 10px;
+  border: 2px solid #4caf50;
+}
+
+.pointage-label {
+  display: block;
+  font-size: 0.9em;
+  color: #2e7d32;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.pointage-heure {
+  display: block;
+  font-size: 1.1em;
+  color: #1b5e20;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+/* Actions rapides de statut */
+.actions-rapides-statut {
+  margin: 25px 0;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #dee2e6;
+}
+
+.actions-rapides-statut h4 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-size: 1.1em;
+  text-align: center;
+}
+
+.boutons-statuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.btn-statut-rapide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 15px 20px;
+  border: 2px solid;
+  border-radius: 10px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+}
+
+.btn-statut-rapide:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-statut-rapide:not(:disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.btn-present {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  color: #2e7d32;
+  border-color: #4caf50;
+}
+
+.btn-present.active {
+  background: linear-gradient(135deg, #4caf50, #388e3c);
+  color: white;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.btn-absent {
+  background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  color: #c62828;
+  border-color: #f44336;
+}
+
+.btn-absent.active {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+  color: white;
+  box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+}
+
+.btn-inscrit {
+  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+  color: #1565c0;
+  border-color: #2196f3;
+}
+
+.btn-inscrit.active {
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.btn-annule {
+  background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+  color: #7b1fa2;
+  border-color: #9c27b0;
+}
+
+.btn-annule.active {
+  background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+  color: white;
+  box-shadow: 0 4px 15px rgba(156, 39, 176, 0.4);
+}
+
+/* Modification avancée (collapsible) */
+.modification-avancee {
+  margin-top: 20px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.modification-avancee summary {
+  padding: 12px 15px;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-weight: 600;
+  color: #6c757d;
+  border-bottom: 1px solid #dee2e6;
+  transition: background 0.3s ease;
+}
+
+.modification-avancee summary:hover {
+  background: #e9ecef;
+}
+
+.modification-avancee[open] summary {
+  background: #e9ecef;
+}
+
+.statut-modification {
+  padding: 20px;
+  background: white;
+}
+
+.statut-modifier-label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1em;
+}
+
+.modification-controls {
+  display: flex;
+  gap: 15px;
+  align-items: flex-end;
+}
+
+.modification-controls .statut-select {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.modification-controls .btn {
+  white-space: nowrap;
+}
+
+.statut-select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1em;
+  background: white;
+  margin-bottom: 15px;
+  transition: border-color 0.3s ease;
+}
+
+.statut-select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.statut-select:disabled {
+  background-color: #f8f9fa;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-statut {
+  background: linear-gradient(135deg, #17a2b8, #138496);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-statut:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(23, 162, 184, 0.3);
+}
+
+.btn-statut:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Styles pour l'info de validation */
+.validation-info {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  border: 2px solid #4caf50;
+  animation: pulseValidation 2s ease-in-out infinite;
+}
+
+@keyframes pulseValidation {
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
 .actions-section {
   text-align: center;
   display: flex;
   gap: 15px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -632,9 +1317,15 @@ export default {
   gap: 8px;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
@@ -643,6 +1334,10 @@ export default {
 
 .btn-primary {
   background: linear-gradient(135deg, #28a745, #218838);
+}
+
+.btn-info {
+  background: linear-gradient(135deg, #17a2b8, #138496);
 }
 
 .help-section {
@@ -721,6 +1416,24 @@ export default {
   .agent-code {
     font-size: 1.2em;
   }
+
+  .boutons-statuts {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-statut-rapide {
+    font-size: 0.9em;
+    padding: 12px 16px;
+  }
+
+  .modification-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .modification-controls .btn {
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -731,6 +1444,19 @@ export default {
 
   .stats-row {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .statut-section {
+    padding: 15px;
+  }
+
+  .actions-rapides-statut {
+    padding: 15px;
+  }
+
+  .btn-statut-rapide {
+    padding: 10px 12px;
+    font-size: 0.85em;
   }
 }
 </style>

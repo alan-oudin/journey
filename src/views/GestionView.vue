@@ -1,6 +1,6 @@
 <template>
   <div class="gestion-view">
-    <h2>Gestion des inscriptions</h2>
+    <h2>👥 Gestion des inscriptions</h2>
     <p class="subtitle">Journée des Proches - Vue d'ensemble et administration</p>
 
     <!-- Indicateur de chargement -->
@@ -15,26 +15,32 @@
       <button @click="chargerAgents" class="btn-retry">🔄 Réessayer</button>
     </div>
 
-    <!-- Statistiques principales -->
+    <!-- Statistiques principales avec les nouveaux statuts -->
     <div class="stats-grid">
       <div class="stat-card primary">
         <div class="stat-number">{{ totalInscriptions }}</div>
-        <div class="stat-label">Agents inscrits</div>
+        <div class="stat-label">Total agents</div>
       </div>
       <div class="stat-card success">
+        <div class="stat-number">{{ statistiquesStatuts.presents }}</div>
+        <div class="stat-label">Présents</div>
+      </div>
+      <div class="stat-card info">
+        <div class="stat-number">{{ statistiquesStatuts.inscrits }}</div>
+        <div class="stat-label">Inscrits</div>
+      </div>
+      <div class="stat-card warning">
+        <div class="stat-number">{{ statistiquesStatuts.absents }}</div>
+        <div class="stat-label">Absents</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-number">{{ statistiquesStatuts.annules }}</div>
+        <div class="stat-label">Annulés</div>
+      </div>
+      <div class="stat-card highlight">
         <div class="stat-number">{{ totalPersonnes }}</div>
         <div class="stat-label">Total personnes</div>
         <div class="stat-detail">{{ totalProches }} proches</div>
-      </div>
-      <div class="stat-card warning">
-        <div class="stat-number">{{ groupeMatin }}</div>
-        <div class="stat-label">Groupe matin</div>
-        <div class="stat-detail">{{ personnesMatin }} personnes</div>
-      </div>
-      <div class="stat-card info">
-        <div class="stat-number">{{ groupeApresMidi }}</div>
-        <div class="stat-label">Groupe après-midi</div>
-        <div class="stat-detail">{{ personnesApresMidi }} personnes</div>
       </div>
     </div>
 
@@ -115,9 +121,54 @@
       <button @click="voirDisponibilites" class="btn btn-info" :disabled="loading">
         📈 Disponibilités
       </button>
+<!--      <router-link to="/recherche" class="btn btn-success">-->
+<!--        🎯 Interface Pointage-->
+<!--      </router-link>-->
       <button @click="effacerTout" class="btn btn-danger" :disabled="loading || agentsTries.length === 0">
         🗑️ Effacer tout
       </button>
+    </div>
+
+    <!-- Filtres par statut -->
+    <div v-if="agentsTries.length > 0" class="filtres-statut">
+      <h3>🔍 Filtrer par statut :</h3>
+      <div class="boutons-filtres">
+        <button
+          @click="filtreStatut = 'tous'"
+          class="btn-filtre"
+          :class="{ 'active': filtreStatut === 'tous' }"
+        >
+          Tous ({{ agentsTries.length }})
+        </button>
+        <button
+          @click="filtreStatut = 'inscrit'"
+          class="btn-filtre btn-filtre-inscrit"
+          :class="{ 'active': filtreStatut === 'inscrit' }"
+        >
+          Inscrits ({{ statistiquesStatuts.inscrits }})
+        </button>
+        <button
+          @click="filtreStatut = 'present'"
+          class="btn-filtre btn-filtre-present"
+          :class="{ 'active': filtreStatut === 'present' }"
+        >
+          Présents ({{ statistiquesStatuts.presents }})
+        </button>
+        <button
+          @click="filtreStatut = 'absent'"
+          class="btn-filtre btn-filtre-absent"
+          :class="{ 'active': filtreStatut === 'absent' }"
+        >
+          Absents ({{ statistiquesStatuts.absents }})
+        </button>
+        <button
+          @click="filtreStatut = 'annule'"
+          class="btn-filtre btn-filtre-annule"
+          :class="{ 'active': filtreStatut === 'annule' }"
+        >
+          Annulés ({{ statistiquesStatuts.annules }})
+        </button>
+      </div>
     </div>
 
     <!-- Liste des agents -->
@@ -132,8 +183,12 @@
       </div>
 
       <div v-else class="agents-grid">
+        <div class="agents-count">
+          <p>{{ agentsFiltres.length }} agent{{ agentsFiltres.length > 1 ? 's' : '' }} affiché{{ agentsFiltres.length > 1 ? 's' : '' }}</p>
+        </div>
+
         <div
-          v-for="agent in agentsTries"
+          v-for="agent in agentsFiltres"
           :key="agent.code_personnel"
           class="agent-card"
         >
@@ -169,6 +224,17 @@
               <span class="periode-badge" :class="getPeriodeClass(agent.heure_arrivee)">
                 {{ getPeriodeLabel(agent.heure_arrivee) }}
               </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Statut</span>
+              <span class="statut-badge" :class="getStatutClass(agent.statut)">
+                {{ getStatutLabel(agent.statut) }}
+              </span>
+            </div>
+            <!-- Affichage conditionnel de l'heure de pointage -->
+            <div v-if="agent.heure_validation" class="info-item">
+              <span class="info-label">Heure de pointage</span>
+              <span class="info-value pointage-heure">{{ formatDate(agent.heure_validation) }}</span>
             </div>
             <div class="info-item">
               <span class="info-label">Inscription</span>
@@ -297,6 +363,7 @@ export default {
       personnesMatin,
       personnesApresMidi,
       agentsTries,
+      statistiquesStatuts,
       loading,
       error
     } = storeToRefs(agentsStore)
@@ -304,6 +371,7 @@ export default {
     // État local
     const derniereMiseAJour = ref('')
     const showDisponibilites = ref(false)
+    const filtreStatut = ref('tous')
 
     // Fonctions du store
     const {
@@ -313,31 +381,12 @@ export default {
       chargerCreneaux
     } = agentsStore
 
-    // Computed pour les statistiques des créneaux
-    const creneauxMatinStats = computed(() => {
-      const creneauxMatin = ['09:00', '09:20', '09:40', '10:00', '10:20', '10:40', '11:00', '11:20', '11:40']
-      return creneauxMatin.map(heure => {
-        const agentsCreneau = agents.value.filter(agent => agent.heure_arrivee === heure)
-        const personnes = agentsCreneau.reduce((sum, agent) => sum + parseInt(agent.nombre_proches) + 1, 0)
-        return {
-          heure,
-          agents: agentsCreneau.length,
-          personnes
-        }
-      })
-    })
-
-    const creneauxApresMidiStats = computed(() => {
-      const creneauxApresMidi = ['13:00', '13:20', '13:40', '14:00', '14:20', '14:40', '15:00', '15:20', '15:40']
-      return creneauxApresMidi.map(heure => {
-        const agentsCreneau = agents.value.filter(agent => agent.heure_arrivee === heure)
-        const personnes = agentsCreneau.reduce((sum, agent) => sum + parseInt(agent.nombre_proches) + 1, 0)
-        return {
-          heure,
-          agents: agentsCreneau.length,
-          personnes
-        }
-      })
+    // Computed pour filtrer les agents
+    const agentsFiltres = computed(() => {
+      if (filtreStatut.value === 'tous') {
+        return agentsTries.value
+      }
+      return agentsTries.value.filter(agent => agent.statut === filtreStatut.value)
     })
 
     // Fonctions utilitaires
@@ -388,6 +437,26 @@ export default {
       return (heure >= '09:00' && heure <= '11:40') ? '🌅 Matin' : '🌆 Après-midi'
     }
 
+    function getStatutClass(statut) {
+      const classes = {
+        'inscrit': 'statut-inscrit',
+        'present': 'statut-present',
+        'absent': 'statut-absent',
+        'annule': 'statut-annule'
+      }
+      return classes[statut] || 'statut-inscrit'
+    }
+
+    function getStatutLabel(statut) {
+      const labels = {
+        'inscrit': '📝 Inscrit',
+        'present': '✅ Présent',
+        'absent': '❌ Absent',
+        'annule': '🚫 Annulé'
+      }
+      return labels[statut] || '📝 Inscrit'
+    }
+
     // Actions
     async function chargerAgentsAvecTimestamp() {
       try {
@@ -423,7 +492,7 @@ export default {
       const agent = agentsTries.value.find(a => a.code_personnel === codePersonnel)
       const nomComplet = agent ? `${agent.prenom} ${agent.nom}` : codePersonnel
 
-      if (confirm(`Êtes-vous sûr de vouloir supprimer l'agent ${nomComplet} ?`)) {
+      if (confirm(`Êtes-vous sûr de vouloir supprimer l'agent ${nomComplet} ?\n\nCette action est irréversible.`)) {
         try {
           await supprimerAgentStore(codePersonnel)
           derniereMiseAJour.value = formatDateForTimestamp()
@@ -434,18 +503,20 @@ export default {
     }
 
     async function effacerTout() {
-      if (confirm('⚠️ ATTENTION: Cette action supprimera définitivement toutes les inscriptions. Voulez-vous continuer?')) {
-        try {
-          const agentsASupprimer = [...agentsTries.value]
+      if (confirm('⚠️ ATTENTION: Cette action supprimera définitivement toutes les inscriptions.\n\nVoulez-vous continuer ?')) {
+        if (confirm('🚨 CONFIRMATION FINALE 🚨\n\nCette action est IRRÉVERSIBLE et supprimera TOUTES les données.\n\nÊtes-vous absolument certain de vouloir continuer ?')) {
+          try {
+            const agentsASupprimer = [...agentsTries.value]
 
-          for (const agent of agentsASupprimer) {
-            await supprimerAgentStore(agent.code_personnel)
+            for (const agent of agentsASupprimer) {
+              await supprimerAgentStore(agent.code_personnel)
+            }
+
+            derniereMiseAJour.value = formatDateForTimestamp()
+            alert('✅ Toutes les inscriptions ont été supprimées')
+          } catch (error) {
+            alert(`Erreur lors de la suppression : ${error.message}`)
           }
-
-          derniereMiseAJour.value = formatDateForTimestamp()
-          alert('✅ Toutes les inscriptions ont été supprimées')
-        } catch (error) {
-          alert(`Erreur lors de la suppression : ${error.message}`)
         }
       }
     }
@@ -467,16 +538,22 @@ export default {
       personnesMatin,
       personnesApresMidi,
       agentsTries,
+      statistiquesStatuts,
       loading,
       error,
       // État local
       derniereMiseAJour,
       showDisponibilites,
+      filtreStatut,
+      // Computed
+      agentsFiltres,
       // Fonctions
       formatDate,
       getBadgeClass,
       getPeriodeClass,
       getPeriodeLabel,
+      getStatutClass,
+      getStatutLabel,
       chargerAgents,
       rafraichirDonnees,
       exporterDonnees,
@@ -488,7 +565,6 @@ export default {
   }
 }
 </script>
-
 <style scoped>
 .gestion-view {
   max-width: 1200px;
@@ -564,7 +640,7 @@ export default {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 20px;
   margin-bottom: 40px;
 }
@@ -592,12 +668,22 @@ export default {
   border-top-color: #4caf50;
 }
 
+.stat-card.info {
+  background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
+  border-top-color: #03a9f4;
+}
+
 .stat-card.warning {
   background: linear-gradient(135deg, #fff8e1, #ffecb3);
   border-top-color: #ff9800;
 }
 
-.stat-card.info {
+.stat-card.danger {
+  background: linear-gradient(135deg, #ffebee, #ffcdd2);
+  border-top-color: #f44336;
+}
+
+.stat-card.highlight {
   background: linear-gradient(135deg, #f3e5f5, #e1bee7);
   border-top-color: #9c27b0;
 }
@@ -766,6 +852,10 @@ export default {
   background: linear-gradient(135deg, #17a2b8, #138496);
 }
 
+.btn-success {
+  background: linear-gradient(135deg, #28a745, #218838);
+}
+
 .btn-danger {
   background: linear-gradient(135deg, #e74c3c, #c0392b);
 }
@@ -773,6 +863,73 @@ export default {
 .btn-small {
   padding: 10px 20px;
   font-size: 0.9em;
+}
+
+/* Filtres par statut */
+.filtres-statut {
+  margin: 30px 0;
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 15px;
+  border: 1px solid #e9ecef;
+}
+
+.filtres-statut h3 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.boutons-filtres {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-filtre {
+  padding: 10px 20px;
+  border: 2px solid #e9ecef;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  color: #6c757d;
+}
+
+.btn-filtre:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-filtre.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.btn-filtre-inscrit.active {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  color: #1565c0;
+}
+
+.btn-filtre-present.active {
+  background: #e8f5e8;
+  border-color: #4caf50;
+  color: #2e7d32;
+}
+
+.btn-filtre-absent.active {
+  background: #ffebee;
+  border-color: #f44336;
+  color: #c62828;
+}
+
+.btn-filtre-annule.active {
+  background: #f3e5f5;
+  border-color: #9c27b0;
+  color: #7b1fa2;
 }
 
 .no-results {
@@ -785,6 +942,13 @@ export default {
   font-size: 4em;
   margin-bottom: 20px;
   opacity: 0.5;
+}
+
+.agents-count {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #6c757d;
+  font-style: italic;
 }
 
 .agents-grid {
@@ -843,6 +1007,14 @@ export default {
   color: #e67e22;
 }
 
+.pointage-heure {
+  color: #28a745 !important;
+  font-family: monospace;
+  background: rgba(40, 167, 69, 0.1);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
 .badge {
   display: inline-block;
   padding: 8px 16px;
@@ -886,6 +1058,43 @@ export default {
   background: #e2e3f3;
   color: #5a5c96;
   border: 1px solid #b3b5d1;
+}
+
+/* Styles pour les statuts */
+.statut-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 0.85em;
+  font-weight: 600;
+  margin-top: 5px;
+  width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.statut-inscrit {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #2196f3;
+}
+
+.statut-present {
+  background: #e8f5e8;
+  color: #2e7d32;
+  border: 1px solid #4caf50;
+}
+
+.statut-absent {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #f44336;
+}
+
+.statut-annule {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border: 1px solid #9c27b0;
 }
 
 .agent-actions {
@@ -1033,6 +1242,16 @@ export default {
     max-width: 300px;
   }
 
+  .boutons-filtres {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .btn-filtre {
+    width: 100%;
+    max-width: 200px;
+  }
+
   .agent-info {
     grid-template-columns: 1fr;
   }
@@ -1049,8 +1268,140 @@ export default {
 }
 
 @media (max-width: 480px) {
+  .gestion-view {
+    padding: 15px;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
+
+  .repartition-section {
+    padding: 20px;
+  }
+
+  .filtres-statut {
+    padding: 20px;
+  }
+
+  .agent-card {
+    padding: 20px;
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .actions {
+    gap: 10px;
+  }
+
+  .btn {
+    font-size: 1em;
+    padding: 12px 20px;
+  }
+}
+
+/* Animations et transitions */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.agent-card {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.stat-card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Amélioration des contrastes pour l'accessibilité */
+.info-label {
+  font-weight: 600;
+}
+
+.bar-heure {
+  font-size: 1em;
+}
+
+.bar-count {
+  font-weight: 500;
+}
+
+/* États hover améliorés */
+.agent-card:hover .agent-actions .btn {
+  opacity: 1;
+}
+
+.agent-actions .btn {
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+/* Indicateurs visuels pour les actions */
+.btn-danger:hover {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+/* Styles pour les tooltips sur les statuts */
+.statut-badge[title] {
+  cursor: help;
+}
+
+.statut-badge:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Focus states pour l'accessibilité */
+.btn:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+.btn-filtre:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+/* Amélioration visuelle des badges de période */
+.periode-badge {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Style pour les agents avec pointage récent */
+.agent-card:has(.pointage-heure) {
+  border-left-color: #28a745;
+  background: linear-gradient(135deg, #f8fff8, #e8f5e8);
+}
+
+/* Indicateur de dernière modification */
+.agent-card[data-recent="true"] {
+  position: relative;
+}
+
+.agent-card[data-recent="true"]::before {
+  content: "🆕";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 1.2em;
 }
 </style>

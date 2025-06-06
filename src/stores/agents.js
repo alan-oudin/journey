@@ -53,26 +53,8 @@ export const useAgentsStore = defineStore('agents', () => {
     }
   }
 
-  // Configuration alternative : Sélection manuelle
-  function getApiBaseUrlManual() {
-    // Vous pouvez changer cette valeur pour forcer un environnement
-    const ENVIRONMENT = 'auto' // 'laragon', 'wampp', 'production', 'auto'
-
-    const configs = {
-      laragon: 'http://localhost/journey/public/api.php',
-      wampp: 'http://localhost:8080/journey/public/api.php',
-      xampp: 'http://localhost/journey/public/api.php', // Généralement port 80
-      production: `${window.location.protocol}//${window.location.host}/api.php`,
-      auto: getApiBaseUrl() // Détection automatique
-    }
-
-    const apiUrl = configs[ENVIRONMENT] || configs.auto
-    console.log(`🔧 Configuration API sélectionnée: ${ENVIRONMENT} → ${apiUrl}`)
-    return apiUrl
-  }
-
   // URL de l'API (utilise la détection automatique)
-  const API_BASE = getApiBaseUrlManual()
+  const API_BASE = getApiBaseUrl()
 
   // Fonction utilitaire pour parser les réponses API
   async function parseApiResponse(response) {
@@ -152,12 +134,23 @@ export const useAgentsStore = defineStore('agents', () => {
       .reduce((sum, agent) => sum + parseInt(agent.nombre_proches || 0) + 1, 0)
   })
 
+  // Nouvelles statistiques par statut
+  const statistiquesStatuts = computed(() => ({
+    inscrits: agents.value.filter(a => a.statut === 'inscrit').length,
+    presents: agents.value.filter(a => a.statut === 'present').length,
+    absents: agents.value.filter(a => a.statut === 'absent').length,
+    annules: agents.value.filter(a => a.statut === 'annule').length
+  }))
+
   // Fonctions utilitaires
   function generateDefaultCreneaux(heures) {
     const creneauxDefault = {}
 
     heures.forEach(heure => {
-      const agentsCreneau = agents.value.filter(agent => agent.heure_arrivee === heure)
+      // Seuls les agents inscrits et présents comptent pour la capacité
+      const agentsCreneau = agents.value.filter(agent =>
+        agent.heure_arrivee === heure && ['inscrit', 'present'].includes(agent.statut)
+      )
       const personnesTotal = agentsCreneau.reduce((sum, agent) => sum + parseInt(agent.nombre_proches || 0) + 1, 0)
 
       creneauxDefault[heure] = {
@@ -306,7 +299,8 @@ export const useAgentsStore = defineStore('agents', () => {
         prenom: agent.prenom,
         service: agent.service,
         nombre_proches: agent.nombreProches,
-        heure_arrivee: agent.heureArrivee
+        heure_arrivee: agent.heureArrivee,
+        statut: 'inscrit' // Statut par défaut
       }
 
       console.log('📤 Envoi agent à l\'API:', agentData)
@@ -380,6 +374,48 @@ export const useAgentsStore = defineStore('agents', () => {
     }
   }
 
+  async function modifierStatutAgent(codePersonnel, nouveauStatut) {
+    loading.value = true
+    error.value = ''
+
+    try {
+      console.log('🔄 Modification statut agent:', codePersonnel, '->', nouveauStatut)
+
+      // Validation côté client
+      const statutsValides = ['inscrit', 'present', 'absent', 'annule']
+      if (!statutsValides.includes(nouveauStatut)) {
+        throw new Error(`Statut invalide. Valeurs autorisées: ${statutsValides.join(', ')}`)
+      }
+
+      const response = await fetch(`${API_BASE}?path=agents&code=${encodeURIComponent(codePersonnel)}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          statut: nouveauStatut
+        })
+      })
+
+      const result = await parseApiResponse(response)
+      console.log('✅ Statut modifié avec succès:', result)
+
+      // Recharger les données après modification
+      await chargerAgents()
+      await chargerCreneaux()
+
+      return result.agent
+
+    } catch (err) {
+      console.error('❌ Erreur modification statut:', err)
+      error.value = err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   async function supprimerAgent(codePersonnel) {
     loading.value = true
     error.value = ''
@@ -433,7 +469,12 @@ export const useAgentsStore = defineStore('agents', () => {
         agents_matin: groupeMatin.value,
         agents_apres_midi: groupeApresMidi.value,
         personnes_matin: personnesMatin.value,
-        personnes_apres_midi: personnesApresMidi.value
+        personnes_apres_midi: personnesApresMidi.value,
+        // Nouvelles stats par statut
+        agents_inscrits: statistiquesStatuts.value.inscrits,
+        agents_presents: statistiquesStatuts.value.presents,
+        agents_absents: statistiquesStatuts.value.absents,
+        agents_annules: statistiquesStatuts.value.annules
       }
     }
   }
@@ -443,7 +484,7 @@ export const useAgentsStore = defineStore('agents', () => {
       throw new Error('Aucune donnée à exporter')
     }
 
-    // Préparer les données CSV
+    // Préparer les données CSV avec les nouveaux champs
     const headers = [
       'Code Personnel',
       'Nom',
@@ -453,7 +494,10 @@ export const useAgentsStore = defineStore('agents', () => {
       'Total Personnes',
       'Heure Arrivée',
       'Période',
-      'Date Inscription'
+      'Statut',
+      'Heure Pointage',
+      'Date Inscription',
+      'Dernière Modification'
     ]
 
     const rows = agents.value.map(agent => [
@@ -465,7 +509,10 @@ export const useAgentsStore = defineStore('agents', () => {
       parseInt(agent.nombre_proches) + 1,
       agent.heure_arrivee,
       (agent.heure_arrivee >= '09:00' && agent.heure_arrivee <= '11:40') ? 'Matin' : 'Après-midi',
-      new Date(agent.date_inscription).toLocaleString('fr-FR')
+      agent.statut,
+      agent.heure_validation ? new Date(agent.heure_validation).toLocaleString('fr-FR') : '',
+      new Date(agent.date_inscription).toLocaleString('fr-FR'),
+      agent.updated_at ? new Date(agent.updated_at).toLocaleString('fr-FR') : ''
     ])
 
     // Créer le contenu CSV
@@ -527,6 +574,7 @@ export const useAgentsStore = defineStore('agents', () => {
     groupeApresMidi,
     personnesMatin,
     personnesApresMidi,
+    statistiquesStatuts,
 
     // Actions
     testConnexion,
@@ -534,6 +582,7 @@ export const useAgentsStore = defineStore('agents', () => {
     chargerCreneaux,
     ajouterAgent,
     rechercherAgent,
+    modifierStatutAgent,
     supprimerAgent,
     chargerStatistiques,
     exporterDonnees,
