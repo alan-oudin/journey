@@ -1,170 +1,41 @@
-<<<<<<< HEAD
-# Guide pour initialiser et committer un projet Git avec PhpStorm
 
-## Prérequis
-- Assure-toi que Git est installé sur ton ordinateur. Vérifie avec :
-  ```bash
-  git --version
-  ```
-- Configure ton identité Git (si ce n'est pas déjà fait) :
-  ```bash
-  git config --global user.name "Alan Oudin"
-  git config --global user.email "ton.email@example.com"
-  ```
-- Assure-toi d'avoir un compte GitHub et un dépôt créé à l'adresse : `https://github.com/alan-oudin/journey.git`.
+# Guide pour initialiser la BDD
 
-## Étapes via la ligne de commande (Terminal dans PhpStorm)
+-- Créer la base de données (si elle n'existe pas)
+CREATE DATABASE IF NOT EXISTS journee_proches 
+CHARACTER SET utf8mb4 
+COLLATE utf8mb4_unicode_ci;
 
-1. **Ouvrir le terminal dans PhpStorm** :
-   - Va dans `View > Tool Windows > Terminal` ou utilise le raccourci `Alt+F12`.
+-- Utiliser la base de données
+USE journee_proches;
 
-2. **Naviguer vers le dossier du projet** :
-   - Si ton projet n'est pas encore ouvert, utilise :
-     ```bash
-     cd chemin/vers/ton/projet
-     ```
+-- Supprimer la table si elle existe (pour repartir proprement)
+DROP TABLE IF EXISTS agents_inscriptions;
 
-3. **Initialiser un dépôt Git** :
-   - Crée un dépôt Git vide dans le dossier de ton projet :
-     ```bash
-     git init
-     ```
+-- Créer la table des agents
+CREATE TABLE agents_inscriptions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    code_personnel VARCHAR(10) NOT NULL UNIQUE,
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    service VARCHAR(150) NOT NULL,
+    nombre_proches INT NOT NULL DEFAULT 0,
+    heure_arrivee TIME NOT NULL,
+    date_inscription TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-4. **Ajouter tous les fichiers au suivi Git** :
-   - Pour ajouter tous les fichiers du projet :
-     ```bash
-     git add .
-     ```
-   - Pour ajouter un fichier spécifique :
-     ```bash
-     git add nom_du_fichier
-     ```
+-- Créer les index
+CREATE INDEX idx_code_personnel ON agents_inscriptions(code_personnel);
+CREATE INDEX idx_heure_arrivee ON agents_inscriptions(heure_arrivee);
 
-5. **Créer le premier commit** :
-   - Valide les fichiers ajoutés avec un message descriptif :
-     ```bash
-     git commit -m "Initial commit"
-     ```
-
-6. **Associer le dépôt distant** :
-   - Lie ton dépôt local au dépôt GitHub :
-     ```bash
-     git remote add origin https://github.com/alan-oudin/journey.git
-     ```
-
-7. **Vérifier la configuration du dépôt distant** :
-   - Vérifie que l'URL est correcte :
-     ```bash
-     git remote -v
-     ```
-
-8. **Pousser vers le dépôt distant** :
-   - Envoie ton commit vers la branche principale (généralement `main` ou `master`) :
-     ```bash
-     git push -u origin main
-     ```
-   - **Note** : Si la branche principale est `master`, utilise :
-     ```bash
-     git push -u origin master
-     ```
-
-9. **Vérifier l'état du dépôt** :
-   - Vérifie les fichiers modifiés ou en attente avec :
-     ```bash
-     git status
-     ```
-
-## Étapes via l'interface graphique de PhpStorm
-
-1. **Ouvrir ou créer un projet** :
-   - Ouvre ton projet dans PhpStorm via `File > Open` ou crée un nouveau projet.
-
-2. **Activer le contrôle de version** :
-   - Va dans `VCS > Enable Version Control Integration`.
-   - Sélectionne `Git` dans la liste déroulante et clique sur `OK`. Cela initialise un dépôt Git (équivalent à `git init`).
-
-3. **Ajouter les fichiers au commit** :
-   - Ouvre la fenêtre de commit avec `Ctrl+K` ou `VCS > Commit`.
-   - Dans la fenêtre, coche les fichiers que tu veux inclure (ou tous pour ajouter l'ensemble du projet).
-
-4. **Faire un commit** :
-   - Dans la fenêtre de commit, saisis un message descriptif (ex. : "Initial commit").
-   - Clique sur `Commit` ou utilise `Ctrl+K`. Cela équivaut à `git commit -m "message"`.
-
-5. **Ajouter le dépôt distant** :
-   - Va dans `VCS > Git > Remotes`.
-   - Clique sur le bouton `+` et ajoute l'URL du dépôt : `https://github.com/alan-oudin/journey.git`.
-   - Nomme-le `origin` (par défaut) et clique sur `OK`. Cela équivaut à `git remote add origin`.
-
-6. **Pousser vers le dépôt distant** :
-   - Ouvre la fenêtre de push avec `Ctrl+Shift+K` ou `VCS > Git > Push`.
-   - Sélectionne la branche (`main` ou `master`) et clique sur `Push`.
-   - Si demandé, saisis tes identifiants GitHub ou configure un token d'accès personnel.
-
-## Résolution des problèmes courants
-- **Erreur d'authentification lors du push** :
-  - Vérifie que tes identifiants GitHub sont corrects dans PhpStorm (`File > Settings > Version Control > GitHub`).
-  - Si GitHub utilise un token d'accès personnel, configure-le dans PhpStorm ou utilise une clé SSH.
-  - Pour SSH, génère une clé avec :
-    ```bash
-    ssh-keygen -t ed25519 -C "ton.email@example.com"
-    ```
-    Puis ajoute la clé publique à GitHub et configure l'URL du dépôt en SSH :
-    ```bash
-    git remote set-url origin git@github.com:alan-oudin/journey.git
-    ```
-- **Branche principale non reconnue** :
-  - Vérifie le nom de la branche principale sur GitHub (`main` ou `master`) et adapte la commande `git push`.
-- **Conflits ou fichiers non suivis** :
-  - Utilise `git status` pour voir les fichiers non suivis ou modifiés.
-  - Ajoute les fichiers nécessaires avec `git add` ou ignore-les via un fichier `.gitignore`.
-
-## Conseils
-- **Raccourcis PhpStorm** :
-  - `Ctrl+K` : Ouvre la fenêtre de commit.
-  - `Ctrl+Shift+K` : Ouvre la fenêtre de push.
-  - `Alt+9` : Ouvre l'onglet Git pour voir l'historique des commits.
-- **Fichier .gitignore** :
-  - Crée un fichier `.gitignore` dans la racine du projet pour exclure les fichiers inutiles (ex. : dossiers de cache, fichiers temporaires). Exemple pour un projet PHP :
-    ```plaintext
-    /vendor/
-    .idea/
-    *.log
-    ```
-=======
-# journee-proches
-
-This template should help get you started developing with Vue 3 in Vite.
-
-## Recommended IDE Setup
-
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
->>>>>>> 8aaecc6 (Initial commit)
+-- Insérer les données d'exemple
+INSERT INTO agents_inscriptions (code_personnel, nom, prenom, service, nombre_proches, heure_arrivee) VALUES
+('1234', 'MARTIN', 'Pierre', 'Informatique', 2, '09:00:00'),
+('5678', 'DUBOIS', 'Marie', 'Ressources Humaines', 3, '09:20:00'),
+('9012', 'BERNARD', 'Jean', 'Comptabilité', 1, '09:40:00'),
+('3456', 'LEROY', 'Sophie', 'Marketing', 0, '10:00:00'),
+('7890', 'MOREAU', 'Paul', 'Direction', 4, '13:00:00'),
+('2468', 'ROUSSEAU', 'Emma', 'Communication', 2, '13:20:00'),
+('1357', 'GARCIA', 'Lucas', 'Technique', 1, '14:00:00'),
+('9753', 'THOMAS', 'Lea', 'Commercial', 3, '14:40:00');
