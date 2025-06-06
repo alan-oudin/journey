@@ -1,18 +1,18 @@
 
 # Guide pour initialiser la BDD
 
--- Créer la base de données (si elle n'existe pas)
+# Créer la base de données (si elle n'existe pas)
 CREATE DATABASE IF NOT EXISTS journee_proches 
 CHARACTER SET utf8mb4 
 COLLATE utf8mb4_unicode_ci;
 
--- Utiliser la base de données
+# Utiliser la base de données
 USE journee_proches;
 
--- Supprimer la table si elle existe (pour repartir proprement)
+# Supprimer la table si elle existe (pour repartir proprement)
 DROP TABLE IF EXISTS agents_inscriptions;
 
--- Créer la table des agents
+# Créer la table des agents
 CREATE TABLE agents_inscriptions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     code_personnel VARCHAR(10) NOT NULL UNIQUE,
@@ -25,11 +25,11 @@ CREATE TABLE agents_inscriptions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Créer les index
+# Créer les index
 CREATE INDEX idx_code_personnel ON agents_inscriptions(code_personnel);
 CREATE INDEX idx_heure_arrivee ON agents_inscriptions(heure_arrivee);
 
--- Insérer les données d'exemple
+# Insérer les données d'exemple
 INSERT INTO agents_inscriptions (code_personnel, nom, prenom, service, nombre_proches, heure_arrivee) VALUES
 ('1234', 'MARTIN', 'Pierre', 'Informatique', 2, '09:00:00'),
 ('5678', 'DUBOIS', 'Marie', 'Ressources Humaines', 3, '09:20:00'),
