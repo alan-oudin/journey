@@ -87,8 +87,8 @@ try {
                 }
 
                 // Validation des données
-                if (!preg_match('/^[0-9]{4,8}$/', $input['code_personnel'])) {
-                    throw new Exception('Le code personnel doit contenir entre 4 et 8 chiffres');
+                if (!preg_match('/^[0-9]{7}[A-Za-z]{1}$/', $input['code_personnel'])) {
+                    throw new Exception('Le code personnel doit contenir exactement 7 chiffres suivis d\'une lettre (ex: 1234567A)');
                 }
 
                 if ($input['nombre_proches'] < 0 || $input['nombre_proches'] > 4) {
@@ -223,17 +223,23 @@ try {
                 $creneauxMatin = ['09:00', '09:20', '09:40', '10:00', '10:20', '10:40', '11:00', '11:20', '11:40'];
                 $creneauxApresMidi = ['13:00', '13:20', '13:40', '14:00', '14:20', '14:40', '15:00', '15:20', '15:40'];
 
-                // Récupérer les statistiques actuelles
+                // CORRECTION: Récupérer les statistiques avec le bon format d'heure
                 $stmt = $pdo->query("
-                    SELECT heure_arrivee, 
-                           COUNT(*) as agents_inscrits,
-                           SUM(nombre_proches + 1) as personnes_total
+                    SELECT 
+                        TIME_FORMAT(heure_arrivee, '%H:%i') as heure_creneau,
+                        COUNT(*) as agents_inscrits,
+                        SUM(nombre_proches + 1) as personnes_total
                     FROM agents_inscriptions 
                     GROUP BY heure_arrivee
+                    ORDER BY heure_arrivee
                 ");
+
                 $stats = [];
                 while ($row = $stmt->fetch()) {
-                    $stats[$row['heure_arrivee']] = $row;
+                    $stats[$row['heure_creneau']] = [
+                        'agents_inscrits' => (int)$row['agents_inscrits'],
+                        'personnes_total' => (int)$row['personnes_total']
+                    ];
                 }
 
                 // Construire la réponse
@@ -243,8 +249,8 @@ try {
                 ];
 
                 foreach ($creneauxMatin as $heure) {
-                    $personnesTotal = isset($stats[$heure]) ? (int)$stats[$heure]['personnes_total'] : 0;
-                    $agentsInscrits = isset($stats[$heure]) ? (int)$stats[$heure]['agents_inscrits'] : 0;
+                    $personnesTotal = isset($stats[$heure]) ? $stats[$heure]['personnes_total'] : 0;
+                    $agentsInscrits = isset($stats[$heure]) ? $stats[$heure]['agents_inscrits'] : 0;
                     $placesRestantes = max(0, 14 - $personnesTotal);
 
                     $response['matin'][$heure] = [
@@ -256,8 +262,8 @@ try {
                 }
 
                 foreach ($creneauxApresMidi as $heure) {
-                    $personnesTotal = isset($stats[$heure]) ? (int)$stats[$heure]['personnes_total'] : 0;
-                    $agentsInscrits = isset($stats[$heure]) ? (int)$stats[$heure]['agents_inscrits'] : 0;
+                    $personnesTotal = isset($stats[$heure]) ? $stats[$heure]['personnes_total'] : 0;
+                    $agentsInscrits = isset($stats[$heure]) ? $stats[$heure]['agents_inscrits'] : 0;
                     $placesRestantes = max(0, 14 - $personnesTotal);
 
                     $response['apres-midi'][$heure] = [

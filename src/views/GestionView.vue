@@ -47,23 +47,26 @@
           <h4>🌅 Matin (9h00 - 11h40)</h4>
           <div class="creneaux-bars">
             <div
-              v-for="creneau in creneauxMatinStats"
-              :key="creneau.heure"
+              v-for="(info, heure) in creneaux.matin"
+              :key="heure"
               class="creneau-bar"
-              :class="{ 'complet': creneau.personnes >= 14, 'limite': creneau.personnes >= 10 }"
+              :class="{
+                'complet': info.personnes_total >= 14,
+                'limite': info.personnes_total >= 10 && info.personnes_total < 14
+              }"
             >
               <div class="bar-header">
-                <span class="bar-heure">{{ creneau.heure }}</span>
-                <span class="bar-count">{{ creneau.personnes }}/14</span>
+                <span class="bar-heure">{{ heure }}</span>
+                <span class="bar-count">{{ info.personnes_total }}/14</span>
               </div>
               <div class="bar-container">
                 <div
                   class="bar-fill"
-                  :style="{ width: (creneau.personnes / 14 * 100) + '%' }"
+                  :style="{ width: (info.personnes_total / 14 * 100) + '%' }"
                 ></div>
               </div>
               <div class="bar-details">
-                {{ creneau.agents }} agent{{ creneau.agents > 1 ? 's' : '' }}
+                {{ info.agents_inscrits }} agent{{ info.agents_inscrits > 1 ? 's' : '' }}
               </div>
             </div>
           </div>
@@ -74,23 +77,26 @@
           <h4>🌆 Après-midi (13h00 - 15h40)</h4>
           <div class="creneaux-bars">
             <div
-              v-for="creneau in creneauxApresMidiStats"
-              :key="creneau.heure"
+              v-for="(info, heure) in creneaux['apres-midi']"
+              :key="heure"
               class="creneau-bar"
-              :class="{ 'complet': creneau.personnes >= 14, 'limite': creneau.personnes >= 10 }"
+              :class="{
+                'complet': info.personnes_total >= 14,
+                'limite': info.personnes_total >= 10 && info.personnes_total < 14
+              }"
             >
               <div class="bar-header">
-                <span class="bar-heure">{{ creneau.heure }}</span>
-                <span class="bar-count">{{ creneau.personnes }}/14</span>
+                <span class="bar-heure">{{ heure }}</span>
+                <span class="bar-count">{{ info.personnes_total }}/14</span>
               </div>
               <div class="bar-container">
                 <div
                   class="bar-fill"
-                  :style="{ width: (creneau.personnes / 14 * 100) + '%' }"
+                  :style="{ width: (info.personnes_total / 14 * 100) + '%' }"
                 ></div>
               </div>
               <div class="bar-details">
-                {{ creneau.agents }} agent{{ creneau.agents > 1 ? 's' : '' }}
+                {{ info.agents_inscrits }} agent{{ info.agents_inscrits > 1 ? 's' : '' }}
               </div>
             </div>
           </div>
@@ -466,9 +472,6 @@ export default {
       // État local
       derniereMiseAJour,
       showDisponibilites,
-      // Computed
-      creneauxMatinStats,
-      creneauxApresMidiStats,
       // Fonctions
       formatDate,
       getBadgeClass,

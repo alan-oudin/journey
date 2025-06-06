@@ -12,8 +12,67 @@ export const useAgentsStore = defineStore('agents', () => {
   const loading = ref(false)
   const error = ref('')
 
-  // Configuration de l'API - CORRECTION: URL complète vers votre API
-  const API_BASE = 'http://localhost:8080/journee-proches/public/api.php'
+  // ========================================
+  // CONFIGURATION MULTI-ENVIRONNEMENTS
+  // ========================================
+
+  function getApiBaseUrl() {
+    // Détection automatique de l'environnement
+    const hostname = window.location.hostname
+    const port = window.location.port
+
+    // Variables d'environnement (si vous utilisez Vite)
+    const isDev = import.meta.env.DEV
+    const apiUrl = import.meta.env.VITE_API_URL
+
+    // 1. Si une variable d'environnement est définie, l'utiliser
+    if (apiUrl) {
+      console.log('🌐 Utilisation de la variable d\'environnement VITE_API_URL:', apiUrl)
+      return apiUrl
+    }
+
+    // 2. Détection automatique selon l'hôte et le port
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (port === '8080' || port === '80') {
+        // WAMPP / XAMPP avec port 8080
+        console.log('🔧 Environnement détecté: WAMPP/XAMPP (port 8080)')
+        return 'http://localhost:8080/journey/public/api.php'
+      } else if (port === '3000' || port === '5173' || port === '4173') {
+        // Développement avec Vite (port par défaut 5173) + Laragon
+        console.log('🔧 Environnement détecté: Développement Vite + Laragon')
+        return 'http://localhost/journey/public/api.php'
+      } else {
+        // Laragon par défaut (port 80)
+        console.log('🔧 Environnement détecté: Laragon (localhost)')
+        return 'http://localhost/journey/public/api.php'
+      }
+    } else {
+      // Production (domaine personnalisé)
+      console.log('🚀 Environnement détecté: Production')
+      return `${window.location.protocol}//${window.location.host}/api.php`
+    }
+  }
+
+  // Configuration alternative : Sélection manuelle
+  function getApiBaseUrlManual() {
+    // Vous pouvez changer cette valeur pour forcer un environnement
+    const ENVIRONMENT = 'auto' // 'laragon', 'wampp', 'production', 'auto'
+
+    const configs = {
+      laragon: 'http://localhost/journey/public/api.php',
+      wampp: 'http://localhost:8080/journey/public/api.php',
+      xampp: 'http://localhost/journey/public/api.php', // Généralement port 80
+      production: `${window.location.protocol}//${window.location.host}/api.php`,
+      auto: getApiBaseUrl() // Détection automatique
+    }
+
+    const apiUrl = configs[ENVIRONMENT] || configs.auto
+    console.log(`🔧 Configuration API sélectionnée: ${ENVIRONMENT} → ${apiUrl}`)
+    return apiUrl
+  }
+
+  // URL de l'API (utilise la détection automatique)
+  const API_BASE = getApiBaseUrlManual()
 
   // Fonction utilitaire pour parser les réponses API
   async function parseApiResponse(response) {
@@ -115,7 +174,7 @@ export const useAgentsStore = defineStore('agents', () => {
   // Actions
   async function testConnexion() {
     try {
-      console.log('Test de connexion API...')
+      console.log('🧪 Test de connexion API:', API_BASE)
       const response = await fetch(`${API_BASE}?path=test`, {
         method: 'GET',
         headers: {
@@ -125,10 +184,10 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('Test connexion réussi:', data)
+      console.log('✅ Test connexion réussi:', data)
       return data
     } catch (err) {
-      console.error('Erreur test connexion:', err)
+      console.error('❌ Erreur test connexion:', err)
       throw new Error(`Impossible de se connecter à l'API: ${err.message}`)
     }
   }
@@ -138,7 +197,7 @@ export const useAgentsStore = defineStore('agents', () => {
     error.value = ''
 
     try {
-      console.log('Chargement des agents...')
+      console.log('📥 Chargement des agents depuis:', `${API_BASE}?path=agents`)
       const response = await fetch(`${API_BASE}?path=agents`, {
         method: 'GET',
         headers: {
@@ -148,7 +207,7 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('Données agents reçues:', data)
+      console.log('📊 Données agents reçues:', data)
 
       // Adapter selon le format de votre API
       if (Array.isArray(data)) {
@@ -161,10 +220,10 @@ export const useAgentsStore = defineStore('agents', () => {
         agents.value = []
       }
 
-      console.log(`${agents.value.length} agents chargés`)
+      console.log(`✅ ${agents.value.length} agents chargés`)
 
     } catch (err) {
-      console.error('Erreur chargement agents:', err)
+      console.error('❌ Erreur chargement agents:', err)
       error.value = err.message
       agents.value = []
     } finally {
@@ -174,7 +233,7 @@ export const useAgentsStore = defineStore('agents', () => {
 
   async function chargerCreneaux() {
     try {
-      console.log('Chargement des créneaux...')
+      console.log('📅 Chargement des créneaux depuis:', `${API_BASE}?path=creneaux`)
       const response = await fetch(`${API_BASE}?path=creneaux`, {
         method: 'GET',
         headers: {
@@ -184,7 +243,7 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('Données créneaux reçues:', data)
+      console.log('📋 Données créneaux reçues:', data)
 
       // Adapter selon le format de votre API
       if (data.creneaux) {
@@ -196,6 +255,7 @@ export const useAgentsStore = defineStore('agents', () => {
         }
       } else {
         // Format par défaut basé sur les agents actuels
+        console.log('🔧 Génération des créneaux par défaut')
         creneaux.value = {
           matin: generateDefaultCreneaux(['09:00', '09:20', '09:40', '10:00', '10:20', '10:40', '11:00', '11:20', '11:40']),
           'apres-midi': generateDefaultCreneaux(['13:00', '13:20', '13:40', '14:00', '14:20', '14:40', '15:00', '15:20', '15:40'])
@@ -203,9 +263,9 @@ export const useAgentsStore = defineStore('agents', () => {
       }
 
     } catch (err) {
-      console.error('Erreur chargement créneaux:', err)
+      console.error('❌ Erreur chargement créneaux:', err)
       // Créneaux par défaut en cas d'erreur
-      console.log('Génération des créneaux par défaut après erreur')
+      console.log('🔧 Génération des créneaux par défaut après erreur')
       creneaux.value = {
         matin: generateDefaultCreneaux(['09:00', '09:20', '09:40', '10:00', '10:20', '10:40', '11:00', '11:20', '11:40']),
         'apres-midi': generateDefaultCreneaux(['13:00', '13:20', '13:40', '14:00', '14:20', '14:40', '15:00', '15:20', '15:40'])
@@ -222,6 +282,11 @@ export const useAgentsStore = defineStore('agents', () => {
       if (!agent.codePersonnel || !agent.nom || !agent.prenom || !agent.service ||
         agent.nombreProches === undefined || !agent.heureArrivee) {
         throw new Error('Tous les champs obligatoires doivent être remplis')
+      }
+
+      // Vérifier le format du code personnel (7 chiffres + 1 lettre)
+      if (!/^[0-9]{7}[A-Za-z]{1}$/.test(agent.codePersonnel)) {
+        throw new Error('Le code personnel doit contenir exactement 7 chiffres suivis d\'une lettre (ex: 1234567A)')
       }
 
       if (agent.nombreProches < 0 || agent.nombreProches > 4) {
@@ -244,7 +309,7 @@ export const useAgentsStore = defineStore('agents', () => {
         heure_arrivee: agent.heureArrivee
       }
 
-      console.log('Envoi agent à l\'API:', agentData)
+      console.log('📤 Envoi agent à l\'API:', agentData)
 
       const response = await fetch(`${API_BASE}?path=agents`, {
         method: 'POST',
@@ -256,14 +321,14 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const result = await parseApiResponse(response)
-      console.log('Réponse ajout agent:', result)
+      console.log('✅ Réponse ajout agent:', result)
 
       // Recharger les agents pour avoir les données à jour
       await chargerAgents()
       await chargerCreneaux()
 
     } catch (err) {
-      console.error('Erreur ajout agent:', err)
+      console.error('❌ Erreur ajout agent:', err)
       error.value = err.message
       throw err
     } finally {
@@ -276,7 +341,7 @@ export const useAgentsStore = defineStore('agents', () => {
     error.value = ''
 
     try {
-      console.log('Recherche agent:', codePersonnel)
+      console.log('🔍 Recherche agent:', codePersonnel)
       const response = await fetch(`${API_BASE}?path=search&q=${encodeURIComponent(codePersonnel)}`, {
         method: 'GET',
         headers: {
@@ -290,7 +355,7 @@ export const useAgentsStore = defineStore('agents', () => {
       }
 
       const data = await parseApiResponse(response)
-      console.log('Résultat recherche:', data)
+      console.log('📋 Résultat recherche:', data)
 
       // Adapter selon le format de votre API
       if (data.agent) {
@@ -304,7 +369,7 @@ export const useAgentsStore = defineStore('agents', () => {
       }
 
     } catch (err) {
-      console.error('Erreur recherche agent:', err)
+      console.error('❌ Erreur recherche agent:', err)
       if (err.message.includes('404') || err.message.includes('non trouvé')) {
         return null
       }
@@ -320,7 +385,7 @@ export const useAgentsStore = defineStore('agents', () => {
     error.value = ''
 
     try {
-      console.log('Suppression agent:', codePersonnel)
+      console.log('🗑️ Suppression agent:', codePersonnel)
       const response = await fetch(`${API_BASE}?path=agents&code=${encodeURIComponent(codePersonnel)}`, {
         method: 'DELETE',
         headers: {
@@ -336,7 +401,7 @@ export const useAgentsStore = defineStore('agents', () => {
       await chargerCreneaux()
 
     } catch (err) {
-      console.error('Erreur suppression agent:', err)
+      console.error('❌ Erreur suppression agent:', err)
       error.value = err.message
       throw err
     } finally {
@@ -346,7 +411,7 @@ export const useAgentsStore = defineStore('agents', () => {
 
   async function chargerStatistiques() {
     try {
-      console.log('Chargement statistiques...')
+      console.log('📊 Chargement statistiques...')
       const response = await fetch(`${API_BASE}?path=stats`, {
         method: 'GET',
         headers: {
@@ -359,7 +424,7 @@ export const useAgentsStore = defineStore('agents', () => {
       return data
 
     } catch (err) {
-      console.error('Erreur chargement statistiques:', err)
+      console.error('❌ Erreur chargement statistiques:', err)
       // Retourner les stats calculées localement en cas d'erreur
       return {
         total_agents: totalInscriptions.value,
@@ -427,13 +492,14 @@ export const useAgentsStore = defineStore('agents', () => {
   // Initialisation
   async function initialiser() {
     try {
-      console.log('Initialisation du store...')
+      console.log('🚀 Initialisation du store...')
+      console.log('🌐 URL API configurée:', API_BASE)
       await testConnexion()
       await chargerAgents()
       await chargerCreneaux()
-      console.log('Initialisation terminée')
+      console.log('✅ Initialisation terminée')
     } catch (err) {
-      console.error('Erreur initialisation:', err)
+      console.error('❌ Erreur initialisation:', err)
       error.value = `Impossible de se connecter à l'API: ${err.message}`
 
       // Continuer avec des données par défaut
@@ -471,6 +537,9 @@ export const useAgentsStore = defineStore('agents', () => {
     supprimerAgent,
     chargerStatistiques,
     exporterDonnees,
-    initialiser
+    initialiser,
+
+    // Configuration
+    getApiUrl: () => API_BASE
   }
 })

@@ -25,11 +25,15 @@
             type="text"
             id="codePersonnel"
             required
-            pattern="[0-9]{4,8}"
-            title="4 à 8 chiffres"
-            placeholder="Ex: 12345"
+            pattern="[0-9]{7}[A-Za-z]{1}"
+            title="7 chiffres suivis d'une lettre"
+            placeholder="Ex: 1234567A"
+            maxlength="8"
             :disabled="loading"
           >
+          <small class="form-help">
+            📝 Format requis : 7 chiffres suivis d'une lettre (ex: 1234567A)
+          </small>
         </div>
 
         <!-- Nom -->
@@ -355,9 +359,9 @@ export default {
           throw new Error('Veuillez remplir tous les champs obligatoires')
         }
 
-        // Vérifier que le code personnel est valide (4 à 8 chiffres)
-        if (!/^[0-9]{4,8}$/.test(form.codePersonnel)) {
-          throw new Error('Le code personnel doit contenir entre 4 et 8 chiffres')
+        // Vérifier que le code personnel est valide (7 chiffres + 1 lettre)
+        if (!/^[0-9]{7}[A-Za-z]{1}$/.test(form.codePersonnel)) {
+          throw new Error('Le code personnel doit contenir exactement 7 chiffres suivis d\'une lettre (ex: 1234567A)')
         }
 
         // Vérifier que le nombre de proches est valide (0 à 4)
@@ -436,6 +440,7 @@ export default {
   }
 }
 </script>
+
 
 <style scoped>
 .inscription-view {
