@@ -62,19 +62,6 @@
           >
         </div>
 
-        <!-- Service -->
-        <div class="form-group">
-          <label for="service">Service *</label>
-          <input
-            v-model="form.service"
-            type="text"
-            id="service"
-            required
-            placeholder="Service/Département"
-            :disabled="loading"
-          >
-        </div>
-
         <!-- Nombre de proches (0 à 4) - SPECIFICATION 2.1 -->
         <div class="form-group nombre-proches-group">
           <label for="nombreProches">Nombre de proches accompagnants *</label>
@@ -227,10 +214,6 @@
             <span class="resume-value">{{ form.prenom }} {{ form.nom }}</span>
           </div>
           <div class="resume-item">
-            <span class="resume-label">🏢 Service :</span>
-            <span class="resume-value">{{ form.service }}</span>
-          </div>
-          <div class="resume-item">
             <span class="resume-label">👥 Nombre total de personnes :</span>
             <span class="resume-value highlight">
               {{ parseInt(form.nombreProches) + 1 }}
@@ -291,7 +274,6 @@ export default {
       codePersonnel: '',
       nom: '',
       prenom: '',
-      service: '',
       nombreProches: '',
       heureArrivee: ''
     })
@@ -314,7 +296,7 @@ export default {
 
     const peutValiderInscription = computed(() => {
       return form.codePersonnel && form.nom && form.prenom &&
-        form.service && form.nombreProches !== '' && form.heureArrivee
+        form.nombreProches !== '' && form.heureArrivee
     })
 
     // Fonctions utilitaires
@@ -384,7 +366,6 @@ export default {
           codePersonnel: form.codePersonnel.trim(),
           nom: form.nom.trim().toUpperCase(),
           prenom: form.prenom.trim(),
-          service: form.service.trim(),
           nombreProches: nbProches,
           heureArrivee: form.heureArrivee
         }

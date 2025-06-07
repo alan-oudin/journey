@@ -59,6 +59,7 @@ export const useAgentsStore = defineStore('agents', () => {
   // Fonction utilitaire pour parser les réponses API
   async function parseApiResponse(response) {
     const contentType = response.headers.get('content-type')
+    console.log('🔍 Content-Type de la réponse:', contentType)
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`
@@ -77,17 +78,43 @@ export const useAgentsStore = defineStore('agents', () => {
     }
 
     try {
-      if (contentType && contentType.includes('application/json')) {
-        return await response.json()
-      } else {
-        const textData = await response.text()
-        if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
-          return JSON.parse(textData)
+      // Essayer d'abord de récupérer le texte brut pour le déboguer
+      const textData = await response.text()
+      console.log('🔍 Réponse brute:', textData.substring(0, 200) + '...')
+
+      // Vérifier si c'est du JSON valide
+      if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
+        try {
+          const jsonData = JSON.parse(textData)
+          console.log('✅ Parsing JSON réussi')
+          return jsonData
+        } catch (jsonError) {
+          console.error('❌ Erreur parsing JSON:', jsonError)
+          // Si le parsing échoue mais que ça ressemble à du JSON, on retourne le texte brut
+          // pour que la fonction appelante puisse essayer de le traiter
+          if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
+            console.log('⚠️ Retour du texte brut pour traitement ultérieur')
+            return textData
+          }
+          throw jsonError
         }
-        throw new Error('Réponse non-JSON reçue')
+      } else if (contentType && contentType.includes('application/json')) {
+        // Si le content-type est JSON mais que le texte ne commence pas par { ou [
+        // c'est peut-être un problème de format, essayons quand même de le parser
+        console.warn('⚠️ Content-type JSON mais le texte ne commence pas par { ou [')
+        try {
+          return JSON.parse(textData)
+        } catch (jsonError) {
+          console.error('❌ Échec du parsing JSON malgré content-type:', jsonError)
+          throw jsonError
+        }
       }
+
+      // Si on arrive ici, ce n'est pas du JSON
+      console.error('❌ Réponse non-JSON reçue')
+      throw new Error('Réponse non-JSON reçue')
     } catch (parseError) {
-      console.error('Erreur parsing réponse:', parseError)
+      console.error('❌ Erreur parsing réponse:', parseError)
       throw new Error(`Réponse serveur invalide: ${parseError.message}`)
     }
   }
@@ -201,19 +228,42 @@ export const useAgentsStore = defineStore('agents', () => {
 
       const data = await parseApiResponse(response)
       console.log('📊 Données agents reçues:', data)
+      console.log('📊 Type des données:', typeof data)
+      console.log('📊 Est un tableau?', Array.isArray(data))
 
-      // Adapter selon le format de votre API
-      if (Array.isArray(data)) {
-        agents.value = data
-      } else if (data.agents && Array.isArray(data.agents)) {
-        agents.value = data.agents
-      } else if (data.data && Array.isArray(data.data)) {
-        agents.value = data.data
+      if (data && typeof data === 'string') {
+        try {
+          const parsedData = JSON.parse(data);
+          console.log('📊 Données après JSON.parse:', parsedData);
+          console.log('📊 Type après JSON.parse:', typeof parsedData);
+          console.log('📊 Est un tableau après JSON.parse?', Array.isArray(parsedData));
+
+          if (Array.isArray(parsedData)) {
+            agents.value = parsedData;
+          } else {
+            console.error('❌ Les données parsées ne sont pas un tableau:', parsedData);
+            agents.value = [];
+          }
+        } catch (parseError) {
+          console.error('❌ Erreur lors du parsing des données:', parseError);
+          agents.value = [];
+        }
       } else {
-        agents.value = []
+        // Adapter selon le format de votre API
+        if (Array.isArray(data)) {
+          agents.value = data
+        } else if (data && data.agents && Array.isArray(data.agents)) {
+          agents.value = data.agents
+        } else if (data && data.data && Array.isArray(data.data)) {
+          agents.value = data.data
+        } else {
+          console.error('❌ Format de données non reconnu:', data);
+          agents.value = []
+        }
       }
 
       console.log(`✅ ${agents.value.length} agents chargés`)
+      console.log('📊 Premier agent:', agents.value.length > 0 ? agents.value[0] : 'Aucun agent')
 
     } catch (err) {
       console.error('❌ Erreur chargement agents:', err)
@@ -272,7 +322,7 @@ export const useAgentsStore = defineStore('agents', () => {
 
     try {
       // Validation côté client
-      if (!agent.codePersonnel || !agent.nom || !agent.prenom || !agent.service ||
+      if (!agent.codePersonnel || !agent.nom || !agent.prenom ||
         agent.nombreProches === undefined || !agent.heureArrivee) {
         throw new Error('Tous les champs obligatoires doivent être remplis')
       }

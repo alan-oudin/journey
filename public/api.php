@@ -2,8 +2,8 @@
 /*
 ========================================
 FICHIER: public/api.php
-Version 2.3 - API complète Journée des Proches
-CORRIGÉ - Problème headers résolus
+Version 2.4 - API Journée des Proches
+SUPPRESSION DU CHAMP SERVICE
 ========================================
 */
 
@@ -61,17 +61,18 @@ try {
             if ($method === 'GET') {
                 echo json_encode([
                     'status' => 'OK',
-                    'message' => 'API v2.3 fonctionnelle',
+                    'message' => 'API v2.4 fonctionnelle - Sans champ service',
                     'timestamp' => date('Y-m-d H:i:s'),
                     'database' => 'Connecté à ' . $dbname,
-                    'version' => '2.3',
+                    'version' => '2.4',
                     'features' => [
                         'Gestion des statuts (inscrit, present, absent, annule)',
                         'Pointage automatique avec heure de validation',
                         'Modification des statuts en temps réel',
                         'Statistiques avancées par statut',
                         'Export CSV et sauvegarde JSON',
-                        'Pointage en masse'
+                        'Pointage en masse',
+                        'Structure simplifiée sans champ service'
                     ]
                 ]);
             } else {
@@ -83,7 +84,7 @@ try {
             if ($method === 'GET') {
                 // Récupérer tous les agents avec leur statut et heure de validation
                 $stmt = $pdo->query("
-                    SELECT id, code_personnel, nom, prenom, service, nombre_proches, 
+                    SELECT id, code_personnel, nom, prenom, nombre_proches, 
                            statut, heure_validation, heure_arrivee, date_inscription, updated_at 
                     FROM agents_inscriptions 
                     ORDER BY nom, prenom
@@ -99,8 +100,8 @@ try {
                     throw new Exception('Données JSON invalides');
                 }
 
-                // Validation des champs requis
-                $required = ['code_personnel', 'nom', 'prenom', 'service', 'nombre_proches', 'heure_arrivee'];
+                // Validation des champs requis (service retiré)
+                $required = ['code_personnel', 'nom', 'prenom', 'nombre_proches', 'heure_arrivee'];
                 foreach ($required as $field) {
                     if (!isset($input[$field])) {
                         throw new Exception("Champ requis manquant: $field");
@@ -147,18 +148,17 @@ try {
                     }
                 }
 
-                // Insérer l'agent
+                // Insérer l'agent (sans service)
                 $stmt = $pdo->prepare("
                     INSERT INTO agents_inscriptions 
-                    (code_personnel, nom, prenom, service, nombre_proches, statut, heure_arrivee) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (code_personnel, nom, prenom, nombre_proches, statut, heure_arrivee) 
+                    VALUES (?, ?, ?, ?, ?, ?)
                 ");
 
                 $stmt->execute([
                     $input['code_personnel'],
                     strtoupper(trim($input['nom'])),
                     ucfirst(strtolower(trim($input['prenom']))),
-                    trim($input['service']),
                     (int)$input['nombre_proches'],
                     $statut,
                     $input['heure_arrivee']
@@ -175,7 +175,6 @@ try {
                         'code_personnel' => $input['code_personnel'],
                         'nom' => strtoupper(trim($input['nom'])),
                         'prenom' => ucfirst(strtolower(trim($input['prenom']))),
-                        'service' => trim($input['service']),
                         'nombre_proches' => (int)$input['nombre_proches'],
                         'statut' => $statut,
                         'heure_validation' => null,
@@ -314,7 +313,7 @@ try {
                 }
 
                 $stmt = $pdo->prepare("
-                    SELECT id, code_personnel, nom, prenom, service, nombre_proches, 
+                    SELECT id, code_personnel, nom, prenom, nombre_proches, 
                            statut, heure_validation, heure_arrivee, date_inscription, updated_at
                     FROM agents_inscriptions 
                     WHERE code_personnel = ?
@@ -451,13 +450,12 @@ try {
 
         case 'export':
             if ($method === 'GET') {
-                // Exporter toutes les données en CSV
+                // Exporter toutes les données en CSV (sans service)
                 $stmt = $pdo->query("
                     SELECT 
                         code_personnel,
                         nom,
                         prenom,
-                        service,
                         nombre_proches,
                         (nombre_proches + 1) as total_personnes,
                         heure_arrivee,
@@ -476,7 +474,7 @@ try {
 
                 $agents = $stmt->fetchAll();
 
-                // Headers CSV
+                // Headers CSV (sans service)
                 header('Content-Type: text/csv; charset=utf-8');
                 header('Content-Disposition: attachment; filename="inscriptions_journee_proches_' . date('Y-m-d_H-i') . '.csv"');
                 header('Cache-Control: max-age=0');
@@ -487,12 +485,11 @@ try {
                 // BOM pour UTF-8
                 fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
 
-                // En-têtes
+                // En-têtes (sans service)
                 fputcsv($output, [
                     'Code Personnel',
                     'Nom',
                     'Prénom',
-                    'Service',
                     'Nb Proches',
                     'Total Personnes',
                     'Heure Arrivée',
@@ -503,13 +500,12 @@ try {
                     'Dernière Modification'
                 ], ';');
 
-                // Données
+                // Données (sans service)
                 foreach ($agents as $agent) {
                     fputcsv($output, [
                         $agent['code_personnel'],
                         $agent['nom'],
                         $agent['prenom'],
-                        $agent['service'],
                         $agent['nombre_proches'],
                         $agent['total_personnes'],
                         $agent['heure_arrivee'],
@@ -532,8 +528,8 @@ try {
         default:
             // Page d'accueil de l'API avec documentation complète
             echo json_encode([
-                'api' => 'Journée des Proches API v2.3',
-                'status' => 'Prêt et fonctionnel',
+                'api' => 'Journée des Proches API v2.4',
+                'status' => 'Prêt et fonctionnel - Sans champ service',
                 'timestamp' => date('Y-m-d H:i:s'),
                 'database' => $dbname,
                 'endpoints' => [
@@ -550,6 +546,7 @@ try {
                 ],
                 'statuts_disponibles' => ['inscrit', 'present', 'absent', 'annule'],
                 'capacite_max_par_creneau' => 14,
+                'champs_agent' => ['code_personnel', 'nom', 'prenom', 'nombre_proches', 'heure_arrivee'],
                 'exemple_usage' => [
                     'recherche' => '/api.php?path=search&q=1234567A',
                     'modification_statut' => 'PUT /api.php?path=agents&code=1234567A avec {"statut": "present"}',

@@ -17,7 +17,7 @@
           type="text"
           placeholder="Tapez le code personnel (CP) de l'agent..."
           class="search-input"
-          @input="rechercherAgent"
+          @input="validateCodePersonnel"
           autofocus
         />
         <button v-if="searchTerm" @click="clearSearch" class="clear-button">×</button>
@@ -36,9 +36,9 @@
         <p>La recherche s'effectue automatiquement lors de la saisie</p>
         <div class="examples">
           <p><strong>Exemples de codes :</strong></p>
-          <span class="example-code" @click="searchTerm = '1234567A'; rechercherAgent()">1234567A</span>
-          <span class="example-code" @click="searchTerm = '2345678B'; rechercherAgent()">2345678B</span>
-          <span class="example-code" @click="searchTerm = '3456789C'; rechercherAgent()">3456789C</span>
+          <span class="example-code" @click="searchTerm = '1234567A'; validateCodePersonnel()">1234567A</span>
+          <span class="example-code" @click="searchTerm = '2345678B'; validateCodePersonnel()">2345678B</span>
+          <span class="example-code" @click="searchTerm = '3456789C'; validateCodePersonnel()">3456789C</span>
         </div>
       </div>
 
@@ -59,14 +59,6 @@
 
           <div class="agent-details">
             <div class="detail-row">
-              <div class="detail-item">
-                <span class="detail-icon">🏢</span>
-                <div>
-                  <span class="detail-label">Service</span>
-                  <span class="detail-value">{{ agentTrouve.service }}</span>
-                </div>
-              </div>
-
               <div class="detail-item">
                 <span class="detail-icon">👥</span>
                 <div>
@@ -162,49 +154,18 @@
                         Remettre INSCRIT
                       </button>
 
-                      <button
-                        @click="confirmerAnnulation"
-                        class="btn-statut-rapide btn-annule"
-                        :disabled="loadingStatut || agentTrouve.statut === 'annule'"
-                        :class="{ 'active': agentTrouve.statut === 'annule' }"
-                      >
-                        <span v-if="loadingStatut && nouveauStatut === 'annule'">⏳</span>
-                        <span v-else>🚫</span>
-                        ANNULER inscription
-                      </button>
+<!--                      <button-->
+<!--                        @click="confirmerAnnulation"-->
+<!--                        class="btn-statut-rapide btn-annule"-->
+<!--                        :disabled="loadingStatut || agentTrouve.statut === 'annule'"-->
+<!--                        :class="{ 'active': agentTrouve.statut === 'annule' }"-->
+<!--                      >-->
+<!--                        <span v-if="loadingStatut && nouveauStatut === 'annule'">⏳</span>-->
+<!--                        <span v-else>🚫</span>-->
+<!--                        ANNULER inscription-->
+<!--                      </button>-->
                     </div>
                   </div>
-
-                  <!-- Modification avancée (optionnelle) -->
-                  <details class="modification-avancee">
-                    <summary>⚙️ Modification avancée</summary>
-                    <div class="statut-modification">
-                      <label for="nouveauStatut" class="statut-modifier-label">
-                        🔄 Choisir un statut :
-                      </label>
-                      <div class="modification-controls">
-                        <select
-                          v-model="nouveauStatut"
-                          id="nouveauStatut"
-                          class="statut-select"
-                          :disabled="loading || loadingStatut"
-                        >
-                          <option value="inscrit">📝 Inscrit</option>
-                          <option value="present">✅ Présent</option>
-                          <option value="absent">❌ Absent</option>
-                          <option value="annule">🚫 Annulé</option>
-                        </select>
-                        <button
-                          @click="modifierStatut"
-                          class="btn btn-statut"
-                          :disabled="loading || loadingStatut || nouveauStatut === agentTrouve.statut"
-                        >
-                          <span v-if="loadingStatut">⏳ Modification...</span>
-                          <span v-else>💾 Valider</span>
-                        </button>
-                      </div>
-                    </div>
-                  </details>
                 </div>
               </div>
             </div>
@@ -397,6 +358,29 @@ export default {
       }, 100)
     }
 
+    function validateCodePersonnel() {
+      // Si le champ est vide, réinitialiser
+      if (!searchTerm.value.trim()) {
+        agentTrouve.value = null
+        messageStatut.value = ''
+        return
+      }
+
+      // Vérifier le format du code personnel (7 chiffres + 1 lettre)
+      const codePersonnelRegex = /^[0-9]{7}[A-Za-z]{1}$/
+
+      // Si le format est invalide, afficher un message d'alerte
+      if (!codePersonnelRegex.test(searchTerm.value.trim())) {
+        messageStatut.value = 'Le code personnel doit contenir exactement 7 chiffres suivis d\'une lettre (ex: 1234567A)'
+        typeMessageStatut.value = 'warning'
+        agentTrouve.value = null
+        return
+      }
+
+      // Si le format est valide, lancer la recherche
+      rechercherAgent()
+    }
+
     async function rechercherAgent() {
       if (!searchTerm.value.trim()) {
         agentTrouve.value = null
@@ -533,7 +517,6 @@ export default {
 Code Personnel: ${agent.code_personnel}
 Nom: ${agent.nom}
 Prénom: ${agent.prenom}
-Service: ${agent.service}
 
 ───────────────────────────────────────────────
 INFORMATIONS VISITE
@@ -619,6 +602,7 @@ Imprimé le: ${new Date().toLocaleString('fr-FR')}
       formatDate,
       clearSearch,
       nouvelleRecherche,
+      validateCodePersonnel,
       rechercherAgent,
       modifierStatut,
       modifierStatutRapide,
