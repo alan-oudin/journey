@@ -7,8 +7,10 @@
 
     <nav class="app-nav">
       <RouterLink to="/inscription" class="nav-link">📝 Inscription</RouterLink>
-      <RouterLink to="/gestion" class="nav-link">👥 Gestion</RouterLink>
-      <RouterLink to="/recherche" class="nav-link">🔍 Recherche</RouterLink>
+      <RouterLink v-if="isAuthenticated" to="/gestion" class="nav-link">👥 Gestion</RouterLink>
+      <RouterLink v-if="isAuthenticated" to="/recherche" class="nav-link">🔍 Recherche</RouterLink>
+      <RouterLink v-if="!isAuthenticated" to="/login" class="nav-link">🔒 Connexion</RouterLink>
+      <a v-if="isAuthenticated" @click="logout" class="nav-link logout-link">🚪 Déconnexion</a>
     </nav>
 
     <main class="app-main">
@@ -19,12 +21,31 @@
 
 <script>
 import { RouterLink, RouterView } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'App',
   components: {
     RouterLink,
     RouterView
+  },
+  setup() {
+    const authStore = useAuthStore()
+    const router = useRouter()
+
+    const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+    function logout() {
+      authStore.logout()
+      router.push('/login')
+    }
+
+    return {
+      isAuthenticated,
+      logout
+    }
   }
 }
 </script>
@@ -81,5 +102,17 @@ export default {
   padding: 40px;
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.logout-link {
+  cursor: pointer;
+  background-color: #f8d7da;
+  color: #721c24;
+  border-bottom-color: #dc3545;
+}
+
+.logout-link:hover {
+  background-color: #f5c6cb;
+  color: #721c24;
 }
 </style>

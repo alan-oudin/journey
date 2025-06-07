@@ -47,6 +47,40 @@ try {
     exit();
 }
 
+// Création de la table admin si elle n'existe pas
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS admins (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(50) NOT NULL UNIQUE,
+            password VARCHAR(255) NOT NULL,
+            role VARCHAR(20) DEFAULT 'admin',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    ");
+
+    // Vérifier si un admin par défaut existe déjà
+    $stmt = $pdo->query("SELECT COUNT(*) as count FROM admins");
+    $result = $stmt->fetch();
+
+    // Si aucun admin n'existe, créer un admin par défaut (admin/admin123)
+    if ($result['count'] == 0) {
+        $defaultUsername = 'admin';
+        $defaultPassword = password_hash('admin123', PASSWORD_DEFAULT);
+
+        $stmt = $pdo->prepare("
+            INSERT INTO admins (username, password, role) 
+            VALUES (?, ?, 'admin')
+        ");
+        $stmt->execute([$defaultUsername, $defaultPassword]);
+
+        error_log('Admin par défaut créé: admin/admin123');
+    }
+} catch (PDOException $e) {
+    error_log('Erreur lors de la création de la table admins: ' . $e->getMessage());
+}
+
 // Récupération du path
 $path = $_GET['path'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -525,6 +559,106 @@ try {
             }
             break;
 
+        case 'login':
+            if ($method === 'POST') {
+                // Authentification
+                $input = json_decode(file_get_contents('php://input'), true);
+
+                if (!$input || !isset($input['username']) || !isset($input['password'])) {
+                    throw new Exception('Identifiants manquants');
+                }
+
+                $username = $input['username'];
+                $password = $input['password'];
+
+                // Rechercher l'utilisateur dans la base de données
+                $stmt = $pdo->prepare("SELECT * FROM admins WHERE username = ?");
+                $stmt->execute([$username]);
+                $user = $stmt->fetch();
+
+                if (!$user || !password_verify($password, $user['password'])) {
+                    http_response_code(401);
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Identifiants incorrects'
+                    ]);
+                    return;
+                }
+
+                // Générer un token JWT simple (en production, utilisez une bibliothèque JWT)
+                $tokenPayload = [
+                    'sub' => $user['id'],
+                    'username' => $user['username'],
+                    'role' => $user['role'],
+                    'exp' => time() + 3600 // Expire dans 1 heure
+                ];
+
+                // Encodage simple (en production, utilisez une bibliothèque JWT)
+                $token = base64_encode(json_encode($tokenPayload));
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Authentification réussie',
+                    'token' => $token,
+                    'username' => $user['username'],
+                    'role' => $user['role']
+                ]);
+            } else {
+                throw new Exception('Méthode non autorisée pour /login');
+            }
+            break;
+
+        case 'verify-token':
+            if ($method === 'GET') {
+                // Vérifier le token d'authentification
+                $headers = getallheaders();
+                $authHeader = $headers['Authorization'] ?? '';
+
+                if (!$authHeader || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+                    http_response_code(401);
+                    echo json_encode([
+                        'valid' => false,
+                        'message' => 'Token manquant ou invalide'
+                    ]);
+                    return;
+                }
+
+                $token = $matches[1];
+
+                try {
+                    // Décodage simple (en production, utilisez une bibliothèque JWT)
+                    $payload = json_decode(base64_decode($token), true);
+
+                    // Vérifier si le token a expiré
+                    if (!$payload || !isset($payload['exp']) || $payload['exp'] < time()) {
+                        throw new Exception('Token expiré ou invalide');
+                    }
+
+                    // Vérifier si l'utilisateur existe toujours
+                    $stmt = $pdo->prepare("SELECT id FROM admins WHERE id = ? AND username = ?");
+                    $stmt->execute([$payload['sub'], $payload['username']]);
+
+                    if (!$stmt->fetch()) {
+                        throw new Exception('Utilisateur non trouvé');
+                    }
+
+                    echo json_encode([
+                        'valid' => true,
+                        'username' => $payload['username'],
+                        'role' => $payload['role']
+                    ]);
+                } catch (Exception $e) {
+                    http_response_code(401);
+                    echo json_encode([
+                        'valid' => false,
+                        'message' => $e->getMessage()
+                    ]);
+                }
+            } else {
+                throw new Exception('Méthode non autorisée pour /verify-token');
+            }
+            break;
+
         default:
             // Page d'accueil de l'API avec documentation complète
             echo json_encode([
@@ -542,7 +676,9 @@ try {
                     'GET /search?q=CODE' => 'Rechercher un agent par code personnel',
                     'GET /creneaux' => 'Disponibilités de tous les créneaux',
                     'GET /stats' => 'Statistiques complètes avec statuts',
-                    'GET /export' => 'Télécharger export CSV complet'
+                    'GET /export' => 'Télécharger export CSV complet',
+                    'POST /login' => 'Authentification (username, password)',
+                    'GET /verify-token' => 'Vérifier la validité d\'un token d\'authentification'
                 ],
                 'statuts_disponibles' => ['inscrit', 'present', 'absent', 'annule'],
                 'capacite_max_par_creneau' => 14,
