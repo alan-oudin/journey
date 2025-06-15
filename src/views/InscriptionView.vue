@@ -245,12 +245,12 @@
 
     <!-- Liens de navigation -->
     <div class="footer-links">
-      <router-link to="/gestion" class="link">
-        👥 Voir tous les agents inscrits
-      </router-link>
-      <router-link to="/recherche" class="link">
-        🔍 Recherche rapide (Jour J)
-      </router-link>
+<!--      <router-link to="/gestion" class="link">-->
+<!--        👥 Voir tous les agents inscrits-->
+<!--      </router-link>-->
+<!--      <router-link to="/recherche" class="link">-->
+<!--        🔍 Recherche rapide (Jour J)-->
+<!--      </router-link>-->
     </div>
   </div>
 </template>
@@ -381,6 +381,9 @@ export default {
 📧 Pensez à noter ces informations pour le jour J !`
         alertType.value = 'success'
 
+        // Remonter l'écran en haut de la page
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+
         resetForm()
 
         // Recharger les créneaux pour mettre à jour les disponibilités
@@ -428,6 +431,7 @@ export default {
   max-width: 1000px;
   margin: 0 auto;
   padding: 20px;
+  padding-bottom: 80px; /* Add padding to account for the fixed button */
 }
 
 .inscription-view h2 {
@@ -816,8 +820,15 @@ export default {
 }
 
 .form-submit {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: white;
+  padding: 15px 0;
   text-align: center;
-  margin: 40px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 100;
 }
 
 .btn {
