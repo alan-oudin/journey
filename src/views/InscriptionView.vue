@@ -383,6 +383,9 @@ export default {
 
         resetForm()
 
+        // Scroll to the top of the page
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+
         // Recharger les créneaux pour mettre à jour les disponibilités
         await chargerCreneauxDisponibles()
 
