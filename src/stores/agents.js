@@ -27,7 +27,7 @@ export const useAgentsStore = defineStore('agents', () => {
 
     // 1. Si une variable d'environnement est définie, l'utiliser
     if (apiUrl) {
-      console.log('🌐 Utilisation de la variable d\'environnement VITE_API_URL:', apiUrl)
+      // console.log('🌐 Utilisation de la variable d\'environnement VITE_API_URL:', apiUrl)
       return apiUrl
     }
 
@@ -35,18 +35,18 @@ export const useAgentsStore = defineStore('agents', () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       if (port === '8080') {
         // WAMP avec port 8080
-        console.log('🔧 Environnement détecté: WAMP (port 8080)')
+        // console.log('🔧 Environnement détecté: WAMP (port 8080)')
         return 'http://localhost:8080/journey/public/api.php'
       } else if (port === '80') {
         // XAMPP ou Laragon avec port 80
-        console.log('🔧 Environnement détecté: XAMPP/Laragon (port 80)')
+        // console.log('🔧 Environnement détecté: XAMPP/Laragon (port 80)')
         return 'http://localhost/journey/public/api.php'
       } else if (port === '3000' || port === '5173' || port === '4173') {
         // Développement avec Vite (port par défaut 5173/3000)
-        console.log('🔧 Environnement détecté: Développement Vite')
+        // console.log('🔧 Environnement détecté: Développement Vite')
         // Si on est sur le port 3000, on utilise le port 8080 pour l'API (WAMP)
         if (port === '3000') {
-          console.log('🔧 Utilisation de l\'API sur WAMP (port 8080)')
+          // console.log('🔧 Utilisation de l\'API sur WAMP (port 8080)')
           return 'http://localhost:8080/journey/public/api.php'
         } else {
           return 'http://localhost/journey/public/api.php'
@@ -69,7 +69,7 @@ export const useAgentsStore = defineStore('agents', () => {
   // Fonction utilitaire pour parser les réponses API
   async function parseApiResponse(response) {
     const contentType = response.headers.get('content-type')
-    console.log('🔍 Content-Type de la réponse:', contentType)
+    // console.log('🔍 Content-Type de la réponse:', contentType)
 
     if (!response.ok) {
       let errorMessage = `HTTP ${response.status}`
@@ -90,20 +90,20 @@ export const useAgentsStore = defineStore('agents', () => {
     try {
       // Essayer d'abord de récupérer le texte brut pour le déboguer
       const textData = await response.text()
-      console.log('🔍 Réponse brute:', textData.substring(0, 200) + '...')
+      // console.log('🔍 Réponse brute:', textData.substring(0, 200) + '...')
 
       // Vérifier si c'est du JSON valide
       if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
         try {
           const jsonData = JSON.parse(textData)
-          console.log('✅ Parsing JSON réussi')
+          // console.log('✅ Parsing JSON réussi')
           return jsonData
         } catch (jsonError) {
-          console.error('❌ Erreur parsing JSON:', jsonError)
+          // console.error('❌ Erreur parsing JSON:', jsonError)
           // Si le parsing échoue mais que ça ressemble à du JSON, on retourne le texte brut
           // pour que la fonction appelante puisse essayer de le traiter
           if (textData.trim().startsWith('{') || textData.trim().startsWith('[')) {
-            console.log('⚠️ Retour du texte brut pour traitement ultérieur')
+            // console.log('⚠️ Retour du texte brut pour traitement ultérieur')
             return textData
           }
           throw jsonError
@@ -204,7 +204,7 @@ export const useAgentsStore = defineStore('agents', () => {
   // Actions
   async function testConnexion() {
     try {
-      console.log('🧪 Test de connexion API:', API_BASE)
+      // console.log('🧪 Test de connexion API:', API_BASE)
       const response = await fetch(`${API_BASE}?path=test`, {
         method: 'GET',
         headers: {
@@ -214,7 +214,7 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('✅ Test connexion réussi:', data)
+      // console.log('✅ Test connexion réussi:', data)
       return data
     } catch (err) {
       console.error('❌ Erreur test connexion:', err)
@@ -227,7 +227,7 @@ export const useAgentsStore = defineStore('agents', () => {
     error.value = ''
 
     try {
-      console.log('📥 Chargement des agents depuis:', `${API_BASE}?path=agents`)
+      // console.log('📥 Chargement des agents depuis:', `${API_BASE}?path=agents`)
       const response = await fetch(`${API_BASE}?path=agents`, {
         method: 'GET',
         headers: {
@@ -237,21 +237,21 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('📊 Données agents reçues:', data)
-      console.log('📊 Type des données:', typeof data)
-      console.log('📊 Est un tableau?', Array.isArray(data))
+      // console.log('📊 Données agents reçues:', data)
+      // console.log('📊 Type des données:', typeof data)
+      // console.log('📊 Est un tableau?', Array.isArray(data))
 
       if (data && typeof data === 'string') {
         try {
           const parsedData = JSON.parse(data);
-          console.log('📊 Données après JSON.parse:', parsedData);
-          console.log('📊 Type après JSON.parse:', typeof parsedData);
-          console.log('📊 Est un tableau après JSON.parse?', Array.isArray(parsedData));
+          // console.log('📊 Données après JSON.parse:', parsedData);
+          // console.log('📊 Type après JSON.parse:', typeof parsedData);
+          // console.log('📊 Est un tableau après JSON.parse?', Array.isArray(parsedData));
 
           if (Array.isArray(parsedData)) {
             agents.value = parsedData;
           } else {
-            console.error('❌ Les données parsées ne sont pas un tableau:', parsedData);
+            // console.error('❌ Les données parsées ne sont pas un tableau:', parsedData);
             agents.value = [];
           }
         } catch (parseError) {
@@ -272,8 +272,8 @@ export const useAgentsStore = defineStore('agents', () => {
         }
       }
 
-      console.log(`✅ ${agents.value.length} agents chargés`)
-      console.log('📊 Premier agent:', agents.value.length > 0 ? agents.value[0] : 'Aucun agent')
+      // console.log(`✅ ${agents.value.length} agents chargés`)
+      // console.log('📊 Premier agent:', agents.value.length > 0 ? agents.value[0] : 'Aucun agent')
 
     } catch (err) {
       console.error('❌ Erreur chargement agents:', err)
@@ -286,7 +286,7 @@ export const useAgentsStore = defineStore('agents', () => {
 
   async function chargerCreneaux() {
     try {
-      console.log('📅 Chargement des créneaux depuis:', `${API_BASE}?path=creneaux`)
+      // console.log('📅 Chargement des créneaux depuis:', `${API_BASE}?path=creneaux`)
       const response = await fetch(`${API_BASE}?path=creneaux`, {
         method: 'GET',
         headers: {
@@ -296,7 +296,7 @@ export const useAgentsStore = defineStore('agents', () => {
       })
 
       const data = await parseApiResponse(response)
-      console.log('📋 Données créneaux reçues:', data)
+      // console.log('📋 Données créneaux reçues:', data)
 
       // Adapter selon le format de votre API
       if (data.creneaux) {

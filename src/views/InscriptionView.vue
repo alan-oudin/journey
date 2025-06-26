@@ -62,6 +62,28 @@
           >
         </div>
 
+        <!-- Adresse email -->
+        <div class="form-group">
+          <label for="email">Adresse email professionnelle SNCF *</label>
+          <div style="display: flex; align-items: center;">
+            <input
+              v-model="form.email"
+              type="text"
+              id="email"
+              required
+              pattern="[a-zA-Z0-9.\-]+\.[a-zA-Z0-9.\-]+"
+              placeholder="prenom.nom"
+              :disabled="loading"
+              style="flex: 1;"
+            >
+            <span style="margin-left: 4px;">@sncf.fr</span>
+          </div>
+          <small class="form-help">
+            Votre adresse ne sera <b>pas conservée</b>, elle servira uniquement à l'envoi de la confirmation de réservation.<br>
+            <b>Seules les adresses professionnelles SNCF sont acceptées.</b>
+          </small>
+        </div>
+
         <!-- Nombre de proches (0 à 4) - SPECIFICATION 2.1 -->
         <div class="form-group nombre-proches-group">
           <label for="nombreProches">Nombre de proches accompagnants *</label>
@@ -274,6 +296,7 @@ export default {
       codePersonnel: '',
       nom: '',
       prenom: '',
+      email: '',
       nombreProches: '',
       heureArrivee: ''
     })
@@ -295,7 +318,7 @@ export default {
     })
 
     const peutValiderInscription = computed(() => {
-      return form.codePersonnel && form.nom && form.prenom &&
+      return form.codePersonnel && form.nom && form.prenom && form.email &&
         form.nombreProches !== '' && form.heureArrivee
     })
 
@@ -366,11 +389,24 @@ export default {
           codePersonnel: form.codePersonnel.trim(),
           nom: form.nom.trim().toUpperCase(),
           prenom: form.prenom.trim(),
+          email: form.email.trim(),
           nombreProches: nbProches,
           heureArrivee: form.heureArrivee
         }
 
         await agentsStore.ajouterAgent(agent)
+
+        // Envoi de l'email de confirmation sans stocker l'email
+        try {
+          await fetch('/send-registration-mail.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: agent.email, nom: agent.prenom })
+          })
+        } catch (e) {
+          // L'échec de l'envoi du mail ne bloque pas l'inscription
+          console.error('Erreur lors de l\'envoi de l\'email :', e)
+        }
 
         const nombrePersonnes = agent.nombreProches + 1
         alertMessage.value = `✅ Agent ${agent.prenom} ${agent.nom} inscrit avec succès !

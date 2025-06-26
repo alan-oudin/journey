@@ -705,33 +705,33 @@ export default {
 
     // Charger les données au montage du composant
     onMounted(() => {
-      console.log('🔄 Montage du composant GestionView')
+      // console.log('🔄 Montage du composant GestionView')
       chargerAgentsAvecTimestamp().then(() => {
-        console.log('📊 Données après chargement:')
-        console.log('- agents:', agents.value.length)
-        console.log('- agentsTries:', agentsTries.value.length)
-        console.log('- agentsFiltres:', agentsFiltres.value.length)
-        console.log('- agentsMatinFiltres:', agentsMatinFiltres.value.length)
-        console.log('- agentsApresMidiFiltres:', agentsApresMidiFiltres.value.length)
-
-        // Vérifier les créneaux
-        console.log('📅 Créneaux:')
-        console.log('- matin:', Object.keys(creneaux.value.matin || {}).length)
-        console.log('- après-midi:', Object.keys(creneaux.value['apres-midi'] || {}).length)
-
-        // Vérifier les agents par créneau
-        console.log('👥 Agents par créneau:')
+        // console.log('📊 Données après chargement:')
+        // console.log('- agents:', agents.value.length)
+        // console.log('- agentsTries:', agentsTries.value.length)
+        // console.log('- agentsFiltres:', agentsFiltres.value.length)
+        // console.log('- agentsMatinFiltres:', agentsMatinFiltres.value.length)
+        // console.log('- agentsApresMidiFiltres:', agentsApresMidiFiltres.value.length)
+        //
+        // // Vérifier les créneaux
+        // console.log('📅 Créneaux:')
+        // console.log('- matin:', Object.keys(creneaux.value.matin || {}).length)
+        // console.log('- après-midi:', Object.keys(creneaux.value['apres-midi'] || {}).length)
+        //
+        // // Vérifier les agents par créneau
+        // console.log('👥 Agents par créneau:')
         let totalAgentsParCreneauMatin = 0
         Object.values(agentsParCreneauMatin.value).forEach(agents => {
           totalAgentsParCreneauMatin += agents.length
         })
-        console.log('- totalAgentsParCreneauMatin:', totalAgentsParCreneauMatin)
+        // console.log('- totalAgentsParCreneauMatin:', totalAgentsParCreneauMatin)
 
         let totalAgentsParCreneauApresMidi = 0
         Object.values(agentsParCreneauApresMidi.value).forEach(agents => {
           totalAgentsParCreneauApresMidi += agents.length
         })
-        console.log('- totalAgentsParCreneauApresMidi:', totalAgentsParCreneauApresMidi)
+        // console.log('- totalAgentsParCreneauApresMidi:', totalAgentsParCreneauApresMidi)
       })
     })
 
