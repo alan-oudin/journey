@@ -88,40 +88,6 @@ try {
     exit();
 }
 
-// Création de la table admin si elle n'existe pas
-try {
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS admins (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            username VARCHAR(50) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            role VARCHAR(20) DEFAULT 'admin',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        )
-    ");
-
-    // Vérifier si un admin par défaut existe déjà
-    $stmt = $pdo->query("SELECT COUNT(*) as count FROM admins");
-    $result = $stmt->fetch();
-
-    // Si aucun admin n'existe, créer un admin par défaut (admin/admin123)
-    if ($result['count'] == 0) {
-        $defaultUsername = 'admin';
-        $defaultPassword = password_hash('admin123', PASSWORD_DEFAULT);
-
-        $stmt = $pdo->prepare("
-            INSERT INTO admins (username, password, role) 
-            VALUES (?, ?, 'admin')
-        ");
-        $stmt->execute([$defaultUsername, $defaultPassword]);
-
-        error_log('Admin par défaut créé: admin/admin123');
-    }
-} catch (PDOException $e) {
-    error_log('Erreur lors de la création de la table admins: ' . $e->getMessage());
-}
-
 // Récupération du path
 $path = $_GET['path'] ?? '';
 $method = $_SERVER['REQUEST_METHOD'];
@@ -160,7 +126,8 @@ try {
                 // Récupérer tous les agents avec leur statut et heure de validation
                 $stmt = $pdo->query("
                     SELECT id, code_personnel, nom, prenom, nombre_proches, 
-                           statut, heure_validation, heure_arrivee, date_inscription, updated_at 
+                           statut, heure_validation, heure_arrivee, date_inscription, updated_at,
+                           fast_food_check 
                     FROM agents_inscriptions 
                     ORDER BY nom, prenom
                 ");
@@ -226,8 +193,8 @@ try {
                 // Insérer l'agent (sans service)
                 $stmt = $pdo->prepare("
                     INSERT INTO agents_inscriptions 
-                    (code_personnel, nom, prenom, nombre_proches, statut, heure_arrivee) 
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (code_personnel, nom, prenom, nombre_proches, statut, heure_arrivee, fast_food_check) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
 
                 $stmt->execute([
@@ -236,7 +203,8 @@ try {
                     ucfirst(strtolower(trim($input['prenom']))),
                     (int)$input['nombre_proches'],
                     $statut,
-                    $input['heure_arrivee']
+                    $input['heure_arrivee'],
+                    isset($input['fast_food_check']) ? 1 : 0
                 ]);
 
                 $id = $pdo->lastInsertId();
@@ -254,7 +222,8 @@ try {
                         'statut' => $statut,
                         'heure_validation' => null,
                         'heure_arrivee' => $input['heure_arrivee'],
-                        'date_inscription' => date('Y-m-d H:i:s')
+                        'date_inscription' => date('Y-m-d H:i:s'),
+                        'fast_food_check' => $input['fast_food_check'] ?? false
                     ]
                 ]);
 

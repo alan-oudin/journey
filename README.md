@@ -1,3 +1,61 @@
+## Structure du projet et particularités
+
+### Arborescence principale
+
+```
+journey/
+├── composer.json           # Dépendances PHP (backend)
+├── package.json            # Dépendances Node.js (frontend Vue.js)
+├── vite.config.js          # Configuration Vite (build/dev serveur Vue)
+├── README.md               # Documentation du projet
+├── database/               # Scripts SQL, batch d'import, migrations
+│   ├── import_database.bat
+│   └── localhost_journee_proches.sql
+├── public/                 # Fichiers accessibles publiquement (API, tests)
+│   ├── api.php             # Point d'entrée backend/API PHP
+│   ├── send-registration-mail.php
+│   ├── test-db.php         # Script de test de connexion DB
+│   └── test-wamp.php       # Script de test spécifique WAMP
+├── src/                    # Code source Vue.js (frontend)
+│   ├── App.vue
+│   ├── main.js
+│   ├── assets/             # Fichiers statiques (CSS, images)
+│   ├── components/         # Composants Vue réutilisables
+│   ├── router/             # Configuration du routage Vue
+│   ├── stores/             # Stores Pinia (état global)
+│   └── views/              # Pages principales de l'application
+├── vendor/                 # Dépendances PHP installées par Composer
+└── emails/                 # (Potentiellement) templates ou scripts liés aux emails
+
+```
+
+### Particularités du projet
+
+- **Frontend** :
+  - Utilise Vue.js avec Vite pour le développement et le build.
+  - Organisation modulaire : composants, vues, stores (Pinia), assets, router.
+  - Configuration multi-environnements via fichiers `.env`.
+
+- **Backend** :
+  - API PHP unique (`public/api.php`) pour la gestion des requêtes.
+  - Utilisation de Composer pour la gestion des dépendances PHP (ex : PHPMailer pour l'envoi d'emails).
+  - Scripts de test et d'envoi d'emails dans `public/`.
+
+- **Base de données** :
+  - Scripts SQL versionnés dans `database/`.
+  - Batch d'importation rapide pour Windows (`import_database.bat`).
+
+- **Sécurité & bonnes pratiques** :
+  - Variables sensibles dans des fichiers `.env` (non versionnés).
+  - Exemples de configuration fournis (`.env.example`).
+  - Tests de configuration et de connexion à la base de données accessibles via le navigateur.
+
+- **Déploiement** :
+  - Compatible WAMP/XAMPP (Windows) et Linux/Mac.
+  - Prévu pour fonctionner en local ou sur VM, avec adaptation facile à Docker.
+
+---
+
 # Déploiement de la Base de Données - Journée des Proches
 
 ## Méthodes de Déploiement de la Base de Données
@@ -100,6 +158,53 @@ Voici les méthodes recommandées pour déployer la base de données de l'applic
   - Environnement isolé et reproductible
   - Facilité de partage entre développeurs
   - Cohérence entre les environnements
+
+## Déploiement et gestion de la base de données avec migrations
+
+### Création et mise à jour automatique de la base de données
+
+L'application utilise un système de migrations SQL pour créer et faire évoluer la base de données automatiquement.
+
+#### 1. Organisation des migrations
+
+- Les scripts SQL sont placés dans le dossier `database/migrations/` et nommés avec un numéro de version croissant, par exemple :
+  - `V1__initial_schema.sql` (création des tables de base)
+  - `V2__ajout_colonne_check_utilisateur.sql` (ajout d'une colonne)
+- Chaque fichier correspond à une évolution du schéma.
+
+#### 2. Exécution des migrations
+
+- Le script `database/migrate.php` applique automatiquement toutes les migrations non encore exécutées.
+- Il crée la base de données si elle n'existe pas, puis applique les scripts dans l'ordre.
+
+**Pour initialiser ou mettre à jour la base de données, exécute simplement :**
+
+```bash
+php database/migrate.php
+```
+
+- Le script se connecte à la base (infos dans `.env`), crée la base si besoin, puis applique les migrations.
+- L'état d'avancement est enregistré dans la table `migrations`.
+
+#### 3. Ajouter une migration
+
+1. Crée un nouveau fichier SQL dans `database/migrations/` (ex : `V3__nouvelle_evolution.sql`).
+2. Ajoute tes instructions SQL (ALTER, CREATE, etc.).
+3. Relance `php database/migrate.php` pour appliquer la migration.
+
+#### 4. Avantages
+
+- Création automatique de la base de données
+- Historique et traçabilité des évolutions
+- Facilité de déploiement sur tout environnement (local, VM, CI/CD)
+- Pas besoin de phpMyAdmin ni de ligne de commande MySQL manuelle
+
+#### 5. Méthodes alternatives
+
+- Import manuel via phpMyAdmin ou ligne de commande (voir plus bas dans ce README)
+- Script batch Windows : `database/import_database.bat`
+
+---
 
 ## Recommandations pour la Sécurité
 
@@ -233,8 +338,70 @@ Ce test est spécifiquement conçu pour la configuration WAMP avec Apache sur po
 
 Ces tests sont particulièrement utiles pour vérifier que votre configuration fonctionne correctement avant de déployer l'application.
 
-### Sécurité
+---
 
-Les fichiers d'environnement contenant des informations sensibles (`.env`, `.env.development`, `.env.production`) sont exclus du contrôle de version via le fichier `.gitignore`. Seul le fichier `.env.example` est versionné pour servir de modèle.
+## Commandes de développement et gestion du projet
 
-Cette approche permet de déployer l'application dans différents environnements sans modifier le code source et sans exposer d'informations sensibles.
+### Installation des dépendances
+
+- **npm install**
+  - Installe toutes les dépendances Node.js nécessaires au projet (frontend Vue.js).
+  - À exécuter après avoir cloné le dépôt ou après modification du fichier `package.json`.
+  - **Implication** : Nécessaire avant toute commande de build ou de lancement du serveur de dev.
+
+- **composer update**
+  - Met à jour les dépendances PHP (backend/API).
+  - À exécuter si le backend PHP évolue ou après modification de `composer.json`.
+  - **Implication** : Assure la compatibilité et la sécurité des librairies PHP utilisées.
+
+### Lancement et build du projet
+
+- **npm run dev**
+  - Démarre le serveur de développement Vite pour Vue.js.
+  - Accès généralement via http://localhost:5173 ou http://localhost:8080 selon la configuration.
+  - **Implication** : Permet le développement avec rechargement à chaud (hot reload).
+
+- **npm run build:dev**
+  - Génère une version optimisée du projet pour l’environnement de développement (dossier `dist/`).
+  - **Implication** : Permet de tester le build sans activer le mode production complet.
+
+- **npm start**
+  - Démarre l’application en mode production (si configuré dans `package.json`).
+  - **Implication** : Sert à simuler le comportement final de l’application.
+
+### Gestion des serveurs Vue.js
+
+- **Trouver les serveurs Vue actifs** :
+  - `npx vite --host` (affiche les serveurs Vite actifs)
+  - Ou, sous Windows : `tasklist | findstr node` (liste les processus Node.js)
+  - **Implication** : Utile pour vérifier si un serveur de dev tourne déjà.
+
+- **Arrêter un serveur Vue** :
+  - Dans le terminal où il tourne : `Ctrl+C`
+  - Ou, sous Windows : `taskkill /F /IM node.exe` (arrête tous les processus Node.js)
+  - **Implication** : Nécessaire avant de relancer un serveur ou libérer des ports.
+
+---
+
+## Ajout d'un administrateur via l'interface web
+
+Pour ajouter un administrateur à l'application, une page dédiée est disponible.
+
+### Étapes :
+
+1. Assurez-vous que la base de données et la table `admins` sont bien créées (voir section sur les migrations).
+2. Lancez votre serveur local (Laragon, WAMP, XAMPP, etc.).
+3. Ouvrez votre navigateur et accédez à l'URL suivante :
+   
+   ```
+   http://localhost/journey/public/add-admin.php
+   ```
+4. Remplissez le formulaire avec le login et le mot de passe souhaités pour l'administrateur.
+5. Validez. Le mot de passe sera automatiquement hashé et l'admin ajouté à la base de données.
+
+- Si le login existe déjà, un message d'erreur s'affichera.
+- En cas de succès, un message de confirmation apparaîtra.
+
+> Cette méthode est recommandée pour créer rapidement un ou plusieurs comptes administrateurs sans passer par des requêtes SQL manuelles.
+
+---
