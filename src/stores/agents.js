@@ -33,17 +33,27 @@ export const useAgentsStore = defineStore('agents', () => {
 
     // 2. Détection automatique selon l'hôte et le port
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      if (port === '8080' || port === '80') {
-        // WAMPP / XAMPP avec port 8080
-        console.log('🔧 Environnement détecté: WAMPP/XAMPP (port 8080)')
+      if (port === '8080') {
+        // WAMP avec port 8080
+        console.log('🔧 Environnement détecté: WAMP (port 8080)')
         return 'http://localhost:8080/journey/public/api.php'
-      } else if (port === '3000' || port === '5173' || port === '4173') {
-        // Développement avec Vite (port par défaut 5173) + Laragon
-        console.log('🔧 Environnement détecté: Développement Vite + Laragon')
+      } else if (port === '80') {
+        // XAMPP ou Laragon avec port 80
+        console.log('🔧 Environnement détecté: XAMPP/Laragon (port 80)')
         return 'http://localhost/journey/public/api.php'
+      } else if (port === '3000' || port === '5173' || port === '4173') {
+        // Développement avec Vite (port par défaut 5173/3000)
+        console.log('🔧 Environnement détecté: Développement Vite')
+        // Si on est sur le port 3000, on utilise le port 8080 pour l'API (WAMP)
+        if (port === '3000') {
+          console.log('🔧 Utilisation de l\'API sur WAMP (port 8080)')
+          return 'http://localhost:8080/journey/public/api.php'
+        } else {
+          return 'http://localhost/journey/public/api.php'
+        }
       } else {
-        // Laragon par défaut (port 80)
-        console.log('🔧 Environnement détecté: Laragon (localhost)')
+        // Autre configuration locale
+        console.log('🔧 Environnement détecté: Autre configuration locale')
         return 'http://localhost/journey/public/api.php'
       }
     } else {

@@ -27,14 +27,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+// Fonction pour charger les variables d'environnement depuis un fichier .env
+function loadEnv($path) {
+    if (!file_exists($path)) {
+        return false;
+    }
+
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        // Ignorer les commentaires
+        if (strpos(trim($line), '#') === 0) {
+            continue;
+        }
+
+        // Traiter les lignes avec le format KEY=VALUE
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+
+            // Supprimer les guillemets si présents
+            if (strpos($value, '"') === 0 && strrpos($value, '"') === strlen($value) - 1) {
+                $value = substr($value, 1, -1);
+            } elseif (strpos($value, "'") === 0 && strrpos($value, "'") === strlen($value) - 1) {
+                $value = substr($value, 1, -1);
+            }
+
+            // Définir la variable d'environnement
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+        }
+    }
+    return true;
+}
+
+// Charger les variables d'environnement
+$envFile = __DIR__ . '/../.env';
+if (!loadEnv($envFile)) {
+    error_log('Fichier .env non trouvé. Utilisation des valeurs par défaut.');
+}
+
 // Configuration base de données
-$host = 'localhost';
-$dbname = 'journee_proches';
-$username = 'root';
-$password = '';
+$host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?? 'localhost';
+$port = $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?? '3306';
+$dbname = $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?? 'journee_proches';
+$username = $_ENV['DB_USER'] ?? getenv('DB_USER') ?? 'root';
+$password = $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?? '';
 
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
+    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
