@@ -111,6 +111,17 @@
             </span>
           </div>
         </div>
+
+        <!-- Intéressé par restauration sur place -->
+        <div class="form-group">
+          <label>
+            <input type="checkbox" v-model="form.fast_food_check" :disabled="loading">
+            Je suis intéressé(e) par la possibilité de me restaurer sur place (snacking, foodtruck...)
+          </label>
+          <small class="form-help">
+            Cette information est recueillie à titre indicatif pour l'organisation. Elle n'engage à rien.
+          </small>
+        </div>
       </div>
 
       <!-- Section créneaux horaires - SPECIFICATION 2.1 -->
@@ -298,7 +309,8 @@ export default {
       prenom: '',
       email: '',
       nombreProches: '',
-      heureArrivee: ''
+      heureArrivee: '',
+      fast_food_check: false  // Changé de interesseRestauration à fast_food_check
     })
 
     // Computed properties
@@ -359,6 +371,7 @@ export default {
 
     async function inscrireAgent() {
       try {
+        console.log("État de la checkbox:", form.fast_food_check);
         // Validation côté client
         if (!peutValiderInscription.value) {
           throw new Error('Veuillez remplir tous les champs obligatoires')
@@ -391,9 +404,11 @@ export default {
           prenom: form.prenom.trim(),
           email: form.email.trim(),
           nombreProches: nbProches,
-          heureArrivee: form.heureArrivee
+          heureArrivee: form.heureArrivee,
+          fast_food_check: form.fast_food_check ? 1 : 0  // Utiliser directement fast_food_check
         }
 
+        console.log("Données envoyées à l'API:", agent);
         await agentsStore.ajouterAgent(agent)
 
         // Envoi de l'email de confirmation sans stocker l'email

@@ -159,6 +159,53 @@ Voici les méthodes recommandées pour déployer la base de données de l'applic
   - Facilité de partage entre développeurs
   - Cohérence entre les environnements
 
+## Déploiement et gestion de la base de données avec migrations
+
+### Création et mise à jour automatique de la base de données
+
+L'application utilise un système de migrations SQL pour créer et faire évoluer la base de données automatiquement.
+
+#### 1. Organisation des migrations
+
+- Les scripts SQL sont placés dans le dossier `database/migrations/` et nommés avec un numéro de version croissant, par exemple :
+  - `V1__initial_schema.sql` (création des tables de base)
+  - `V2__ajout_colonne_check_utilisateur.sql` (ajout d'une colonne)
+- Chaque fichier correspond à une évolution du schéma.
+
+#### 2. Exécution des migrations
+
+- Le script `database/migrate.php` applique automatiquement toutes les migrations non encore exécutées.
+- Il crée la base de données si elle n'existe pas, puis applique les scripts dans l'ordre.
+
+**Pour initialiser ou mettre à jour la base de données, exécute simplement :**
+
+```bash
+php database/migrate.php
+```
+
+- Le script se connecte à la base (infos dans `.env`), crée la base si besoin, puis applique les migrations.
+- L'état d'avancement est enregistré dans la table `migrations`.
+
+#### 3. Ajouter une migration
+
+1. Crée un nouveau fichier SQL dans `database/migrations/` (ex : `V3__nouvelle_evolution.sql`).
+2. Ajoute tes instructions SQL (ALTER, CREATE, etc.).
+3. Relance `php database/migrate.php` pour appliquer la migration.
+
+#### 4. Avantages
+
+- Création automatique de la base de données
+- Historique et traçabilité des évolutions
+- Facilité de déploiement sur tout environnement (local, VM, CI/CD)
+- Pas besoin de phpMyAdmin ni de ligne de commande MySQL manuelle
+
+#### 5. Méthodes alternatives
+
+- Import manuel via phpMyAdmin ou ligne de commande (voir plus bas dans ce README)
+- Script batch Windows : `database/import_database.bat`
+
+---
+
 ## Recommandations pour la Sécurité
 
 1. **Modifier les identifiants par défaut** : Changer les identifiants de connexion à la base de données (actuellement `root` sans mot de passe) dans le fichier `api.php`.
@@ -336,3 +383,25 @@ Ces tests sont particulièrement utiles pour vérifier que votre configuration f
 
 ---
 
+## Ajout d'un administrateur via l'interface web
+
+Pour ajouter un administrateur à l'application, une page dédiée est disponible.
+
+### Étapes :
+
+1. Assurez-vous que la base de données et la table `admins` sont bien créées (voir section sur les migrations).
+2. Lancez votre serveur local (Laragon, WAMP, XAMPP, etc.).
+3. Ouvrez votre navigateur et accédez à l'URL suivante :
+   
+   ```
+   http://localhost/journey/public/add-admin.php
+   ```
+4. Remplissez le formulaire avec le login et le mot de passe souhaités pour l'administrateur.
+5. Validez. Le mot de passe sera automatiquement hashé et l'admin ajouté à la base de données.
+
+- Si le login existe déjà, un message d'erreur s'affichera.
+- En cas de succès, un message de confirmation apparaîtra.
+
+> Cette méthode est recommandée pour créer rapidement un ou plusieurs comptes administrateurs sans passer par des requêtes SQL manuelles.
+
+---

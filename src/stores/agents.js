@@ -22,7 +22,7 @@ export const useAgentsStore = defineStore('agents', () => {
     const port = window.location.port
 
     // Variables d'environnement (si vous utilisez Vite)
-    const isDev = import.meta.env.DEV
+    const isDev = import.meta.env.DEVtio
     const apiUrl = import.meta.env.VITE_API_URL
 
     // 1. Si une variable d'environnement est définie, l'utiliser
@@ -178,6 +178,20 @@ export const useAgentsStore = defineStore('agents', () => {
     absents: agents.value.filter(a => a.statut === 'absent').length,
     annules: agents.value.filter(a => a.statut === 'annule').length
   }))
+
+  // Statistiques restauration
+  const totalPersonnesInteresseesRestauration = computed(() => {
+    return agents.value.reduce((sum, agent) => {
+      if (agent.fast_food_check === 1) {
+        return sum + parseInt(agent.nombre_proches || 0) + 1
+      }
+      return sum
+    }, 0)
+  })
+  const pourcentagePersonnesInteresseesRestauration = computed(() => {
+    if (totalPersonnes.value === 0) return 0
+    return Math.round((totalPersonnesInteresseesRestauration.value / totalPersonnes.value) * 100)
+  })
 
   // Fonctions utilitaires
   function generateDefaultCreneaux(heures) {
@@ -360,7 +374,8 @@ export const useAgentsStore = defineStore('agents', () => {
         service: agent.service,
         nombre_proches: agent.nombreProches,
         heure_arrivee: agent.heureArrivee,
-        statut: 'inscrit' // Statut par défaut
+        statut: 'inscrit', // Statut par défaut
+        fast_food_check: agent.fast_food_check ? 1 : 0  // Utiliser fast_food_check au lieu de interesse_restauration
       }
 
       console.log('📤 Envoi agent à l\'API:', agentData)
@@ -635,6 +650,8 @@ export const useAgentsStore = defineStore('agents', () => {
     personnesMatin,
     personnesApresMidi,
     statistiquesStatuts,
+    totalPersonnesInteresseesRestauration,
+    pourcentagePersonnesInteresseesRestauration,
 
     // Actions
     testConnexion,
