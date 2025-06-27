@@ -10,7 +10,7 @@
     </div>
 
     <div class="login-container">
-      <div class="login-form">
+      <form class="login-form" @submit.prevent="login">
         <div class="form-group">
           <label for="username">Nom d'utilisateur</label>
           <input
@@ -18,7 +18,8 @@
             type="text"
             id="username"
             placeholder="Entrez votre nom d'utilisateur"
-            @keyup.enter="login"
+            required
+            autocomplete="username"
           />
         </div>
         <div class="form-group">
@@ -28,18 +29,17 @@
             type="password"
             id="password"
             placeholder="Entrez votre mot de passe"
-            @keyup.enter="login"
+            required
+            autocomplete="current-password"
           />
         </div>
         <button
-          @click="login"
-          class="btn btn-primary login-btn"
-          :disabled="loading"
+          class="btn btn-primary"
+          type="submit"
         >
-          <span v-if="loading" class="spinner-small"></span>
-          <span v-else>Se connecter</span>
+          Se connecter
         </button>
-      </div>
+      </form>
     </div>
 
     <div class="login-footer">

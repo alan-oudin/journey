@@ -21,7 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     // 1. Si une variable d'environnement est définie, l'utiliser
     if (apiUrl) {
-      console.log('🌐 Utilisation de la variable d\'environnement VITE_API_URL:', apiUrl)
+      // console.log('🌐 Utilisation de la variable d\'environnement VITE_API_URL:', apiUrl)
       return apiUrl
     }
 
@@ -29,20 +29,20 @@ export const useAuthStore = defineStore('auth', () => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       if (port === '8080' || port === '80') {
         // WAMPP / XAMPP avec port 8080
-        console.log('🔧 Environnement détecté: WAMPP/XAMPP (port 8080)')
+        // console.log('🔧 Environnement détecté: WAMPP/XAMPP (port 8080)')
         return 'http://localhost:8080/journey/public/api.php'
       } else if (port === '3000' || port === '5173' || port === '4173') {
         // Développement avec Vite (port par défaut 5173) + Laragon
-        console.log('🔧 Environnement détecté: Développement Vite + Laragon')
+        // console.log('🔧 Environnement détecté: Développement Vite + Laragon')
         return 'http://localhost/journey/public/api.php'
       } else {
         // Laragon par défaut (port 80)
-        console.log('🔧 Environnement détecté: Laragon (localhost)')
+        // console.log('🔧 Environnement détecté: Laragon (localhost)')
         return 'http://localhost/journey/public/api.php'
       }
     } else {
       // Production (domaine personnalisé)
-      console.log('🚀 Environnement détecté: Production')
+      // console.log('🚀 Environnement détecté: Production')
       return `${window.location.protocol}//${window.location.host}/api.php`
     }
   }

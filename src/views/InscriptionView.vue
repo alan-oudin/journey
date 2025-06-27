@@ -62,6 +62,28 @@
           >
         </div>
 
+        <!-- Adresse email -->
+        <div class="form-group">
+          <label for="email">Adresse email professionnelle SNCF *</label>
+          <div style="display: flex; align-items: center;">
+            <input
+              v-model="form.email"
+              type="text"
+              id="email"
+              required
+              pattern="[a-zA-Z0-9.\-]+\.[a-zA-Z0-9.\-]+"
+              placeholder="prenom.nom"
+              :disabled="loading"
+              style="flex: 1;"
+            >
+            <span style="margin-left: 4px;">@sncf.fr</span>
+          </div>
+          <small class="form-help">
+            Votre adresse ne sera <b>pas conservée</b>, elle servira uniquement à l'envoi de la confirmation de réservation.<br>
+            <b>Seules les adresses professionnelles SNCF sont acceptées.</b>
+          </small>
+        </div>
+
         <!-- Nombre de proches (0 à 4) - SPECIFICATION 2.1 -->
         <div class="form-group nombre-proches-group">
           <label for="nombreProches">Nombre de proches accompagnants *</label>
@@ -88,6 +110,17 @@
               (vous + {{ form.nombreProches }} proche{{ form.nombreProches > 1 ? 's' : '' }})
             </span>
           </div>
+        </div>
+
+        <!-- Intéressé par restauration sur place -->
+        <div class="form-group">
+          <label>
+            <input type="checkbox" v-model="form.fast_food_check" :disabled="loading">
+            Je suis intéressé(e) par la possibilité de me restaurer sur place (snacking, foodtruck...)
+          </label>
+          <small class="form-help">
+            Cette information est recueillie à titre indicatif pour l'organisation. Elle n'engage à rien.
+          </small>
         </div>
       </div>
 
@@ -274,8 +307,10 @@ export default {
       codePersonnel: '',
       nom: '',
       prenom: '',
+      email: '',
       nombreProches: '',
-      heureArrivee: ''
+      heureArrivee: '',
+      fast_food_check: false  // Changé de interesseRestauration à fast_food_check
     })
 
     // Computed properties
@@ -295,7 +330,7 @@ export default {
     })
 
     const peutValiderInscription = computed(() => {
-      return form.codePersonnel && form.nom && form.prenom &&
+      return form.codePersonnel && form.nom && form.prenom && form.email &&
         form.nombreProches !== '' && form.heureArrivee
     })
 
@@ -336,6 +371,7 @@ export default {
 
     async function inscrireAgent() {
       try {
+        console.log("État de la checkbox:", form.fast_food_check);
         // Validation côté client
         if (!peutValiderInscription.value) {
           throw new Error('Veuillez remplir tous les champs obligatoires')
@@ -366,11 +402,26 @@ export default {
           codePersonnel: form.codePersonnel.trim(),
           nom: form.nom.trim().toUpperCase(),
           prenom: form.prenom.trim(),
+          email: form.email.trim(),
           nombreProches: nbProches,
-          heureArrivee: form.heureArrivee
+          heureArrivee: form.heureArrivee,
+          fast_food_check: form.fast_food_check ? 1 : 0  // Utiliser directement fast_food_check
         }
 
+        console.log("Données envoyées à l'API:", agent);
         await agentsStore.ajouterAgent(agent)
+
+        // Envoi de l'email de confirmation sans stocker l'email
+        try {
+          await fetch('/send-registration-mail.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: agent.email, nom: agent.prenom })
+          })
+        } catch (e) {
+          // L'échec de l'envoi du mail ne bloque pas l'inscription
+          console.error('Erreur lors de l\'envoi de l\'email :', e)
+        }
 
         const nombrePersonnes = agent.nombreProches + 1
         alertMessage.value = `✅ Agent ${agent.prenom} ${agent.nom} inscrit avec succès !
